@@ -1,0 +1,7 @@
+timeStamp,elapsed,label,responseCode,responseMessage,threadName,dataType,success,failureMessage,bytes,sentBytes,grpThreads,allThreads,URL,Latency,IdleTime,Connect
+1734066165190,1000,GET,200,,Thread-1,,true,,200,100,1,1,http://example.com,0,0,0
+1734066166198,1000,GET,200,,Thread-1,,true,,200,100,1,1,http://example.com,0,0,0
+1734066167202,1000,GET,200,,Thread-1,,true,,200,100,1,1,http://example.com,0,0,0
+1734066168203,1000,GET,200,,Thread-1,,true,,200,100,1,1,http://example.com,0,0,0
+1734066169208,1000,GET,200,,Thread-1,,true,,200,100,1,1,http://example.com,0,0,0
+1734066170197,1000,GET,200,,Thread-1,,true,,200,100,1,1,http://example.com,0,0,0
