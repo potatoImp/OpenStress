@@ -1,0 +1,29 @@
+2024-12-12 19:42:12.347 [INFO] [TaskModule] Task created with ID: task1
+2024-12-12 19:42:12.364 [INFO] [TaskModule] Task task1 started at 2024-12-12 19:42:12.3645508 +0800 CST m=+0.021009801
+2024-12-12 19:42:14.367 [INFO] [TaskModule] Task task1 completed successfully in 2.0024624s
+2024-12-12 19:42:15.373 [INFO] [TaskModule] Task created with ID: task2
+2024-12-12 19:42:15.373 [INFO] [TaskModule] Task task2 timeout set to 1s
+2024-12-12 19:42:15.373 [INFO] [TaskModule] Task task2 started at 2024-12-12 19:42:15.3734483 +0800 CST m=+3.029907301
+2024-12-12 19:42:16.381 [INFO] [TaskModule] Task task2 status changed to TIMEOUT
+2024-12-12 19:42:16.381 [ERROR] [TaskModule] Task task2 timed out after 1s
+2024-12-12 19:42:17.381 [INFO] [TaskModule] Task task2 completed successfully in 2.0081779s
+2024-12-12 19:42:17.381 [INFO] [TaskModule] Task created with ID: task3
+2024-12-12 19:42:17.381 [INFO] [TaskModule] Task task3 started at 2024-12-12 19:42:17.3816262 +0800 CST m=+5.038085201
+2024-12-12 19:42:17.382 [ERROR] [TaskModule] Task task3 failed: task failed intentionally
+2024-12-12 19:42:17.382 [WARNING] [TaskModule] Retrying task task3 (attempt 1/3)
+2024-12-12 19:42:18.383 [ERROR] [TaskModule] Task task3 failed: task failed intentionally
+2024-12-12 19:42:18.383 [WARNING] [TaskModule] Retrying task task3 (attempt 2/3)
+2024-12-12 19:42:19.385 [ERROR] [TaskModule] Task task3 failed: task failed intentionally
+2024-12-12 19:42:19.385 [WARNING] [TaskModule] Retrying task task3 (attempt 3/3)
+2024-12-12 19:42:20.399 [ERROR] [TaskModule] Task task3 failed: task failed intentionally
+2024-12-12 19:42:20.399 [ERROR] [TaskModule] Task task3 exceeded maximum retry attempts (3)
+2024-12-12 19:42:21.406 [INFO] [TaskModule] Task created with ID: task4
+2024-12-12 19:42:21.406 [INFO] [TaskModule] Task created with ID: task5
+2024-12-12 19:42:21.406 [INFO] [TaskModule] Added dependency: Task task5 now depends on Task task4
+2024-12-12 19:42:21.406 [INFO] [TaskModule] Task task5 started at 2024-12-12 19:42:21.4063779 +0800 CST m=+9.062836901
+2024-12-12 19:42:21.406 [ERROR] [TaskModule] Dependency task task4 is not completed (status: PENDING)
+2024-12-12 19:42:21.406 [INFO] [TaskModule] Task task5 status changed to FAILED
+2024-12-12 19:42:21.407 [INFO] [TaskModule] Task task4 started at 2024-12-12 19:42:21.407449 +0800 CST m=+9.063908001
+2024-12-12 19:42:23.409 [INFO] [TaskModule] Task task4 completed successfully in 2.0023473s
+2024-12-12 19:42:24.423 [INFO] [TaskModule] Task created with ID: task6
+2024-12-12 19:42:24.423 [WARNING] [TaskModule] Task task6 cancelled

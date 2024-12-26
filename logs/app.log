@@ -1,0 +1,10 @@
+INFO Application started
+WARNING This is a warning message
+ERROR An error occurred
+2024-12-12 16:51:53 [INFO] Application started
+2024-12-12 16:51:53 [WARNING] This is a warning message
+2024-12-12 16:51:53 [ERROR] An error occurred
+2024-12-12 16:54:36.469 [INFO] [MainModule] Application started
+2024-12-12 16:54:36.494 [WARNING] [MainModule] This is a warning message
+2024-12-12 16:54:36.494 [ERROR] [MainModule] An error occurred
+2024-12-12 16:54:36.494 [DEBUG] [MainModule] Debugging information

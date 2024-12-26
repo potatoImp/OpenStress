@@ -102,15 +102,7 @@
 package pool
 
 import (
-	"OpenStress/tasks"
 	"fmt"
-	"go/ast"
-	"go/parser"
-	"go/token"
-	"os"
-	"path/filepath"
-	"reflect"
-	"strings"
 	"sync"
 	"time"
 )
@@ -152,38 +144,38 @@ func (s TaskStatus) String() string {
 type TaskDetail struct {
 	// ID 任务的唯一标识符
 	// 用于在日志和错误信息中标识特定任务
-	ID string
+	ID           string
 
 	// Status 任务当前状态
 	// 可能的值：Pending（待执行）、Running（执行中）、
 	// Completed（已完成）、Failed（失败）、
 	// Cancelled（已取消）、Timeout（超时）
-	Status TaskStatus
+	Status       TaskStatus
 
 	// Execute 任务的执行函数
 	// 包含实际需要执行的业务逻辑
 	// 返回 error 表示执行是否成功
-	Execute func() error
+	Execute      func() error
 
 	// RetryCount 当前重试次数
 	// 记录任务已经重试了多少次
-	RetryCount int
+	RetryCount   int
 
 	// MaxRetries 最大重试次数
 	// 任务失败后最多允许重试的次数
-	MaxRetries int
+	MaxRetries   int
 
 	// RetryDelay 重试间隔时间
 	// 两次重试之间的等待时间
-	RetryDelay time.Duration
+	RetryDelay   time.Duration
 
 	// Timeout 任务超时时间
 	// 如果任务执行时间超过此值，将被标记为超时
-	Timeout time.Duration
+	Timeout      time.Duration
 
 	// Priority 任务优先级
 	// 数值越大优先级越高，用于任务调度
-	Priority int
+	Priority     int
 
 	// Dependencies 任务依赖列表
 	// 存储当前任务依赖的其他任务
@@ -192,20 +184,20 @@ type TaskDetail struct {
 
 	// StartTime 任务开始执行的时间
 	// 用于计算任务执行时长和超时判断
-	StartTime time.Time
+	StartTime    time.Time
 
 	// EndTime 任务结束时间
 	// 包括正常完成、失败、取消等所有结束状态
-	EndTime time.Time
+	EndTime      time.Time
 
 	// Error 任务执行过程中的错误信息
 	// 如果任务执行失败，这里存储具体的错误原因
-	Error error
+	Error        error
 
 	// mu 互斥锁
 	// 用于保护任务状态的并发访问
 	// 确保任务状态的修改是线程安全的
-	mu sync.Mutex
+	mu           sync.Mutex
 }
 
 var logger *StressLogger
@@ -276,7 +268,7 @@ func (t *TaskDetail) executeTask() error {
 	}
 	t.Status = TaskCompleted
 	t.mu.Unlock()
-
+	
 	duration := t.EndTime.Sub(t.StartTime)
 	logger.Log("INFO", fmt.Sprintf("Task %s completed successfully in %v", t.ID, duration))
 	return nil
@@ -313,7 +305,7 @@ func (t *TaskDetail) Retry() error {
 
 	logger.Log("WARNING", fmt.Sprintf("Retrying task %s (attempt %d/%d)", t.ID, currentRetry, t.MaxRetries))
 	time.Sleep(t.RetryDelay)
-
+	
 	return t.executeTask()
 }
 
@@ -375,80 +367,4 @@ func (t *TaskDetail) setStatus(status TaskStatus) {
 
 	t.Status = status
 	logger.Log("INFO", fmt.Sprintf("Task %s status changed to %v", t.ID, status))
-}
-
-// LoadTasks 自动加载任务到任务池
-func LoadTasks(pool *Pool) {
-	// 使用反射获取 tasks 包中的类型
-	fmt.Println("Loading tasks...")
-	taskType := reflect.TypeOf(tasks.Task{}) // 获取 Task 结构体的类型
-	// fmt.Println(TaskDetail{})
-	fmt.Println(taskType)
-	// fmt.Println(taskType.NumMethod())
-	for i := 0; i < taskType.NumMethod(); i++ {
-		method := taskType.Method(i)
-		if method.Type.NumIn() == 0 && strings.HasPrefix(method.Name, "Task_") {
-			// 生成任务数据结构
-			taskID := method.Name
-			fn := method.Func.Interface().(func())
-			priority := 1   // 可以根据需要设置优先级
-			maxRetries := 3 // 可以根据需要设置重试次数
-			// 提交任务到任务池
-			pool.Submit(fn, priority, maxRetries, taskID)
-
-			// 打印加载的任务信息
-			fmt.Printf("Loaded task: %s\n", taskID)
-		}
-	}
-}
-
-// LoadTasks 自动加载任务到任务池
-func LoadTasks2(pool *Pool) {
-	fmt.Println("Loading tasks...11111111111111")
-
-	wd, pwdErr := os.Getwd()
-	if pwdErr != nil {
-		fmt.Printf("Error getting current directory: %v\n", pwdErr)
-		return
-	}
-
-	asksDir := filepath.Join(wd, "tasks") // 构建绝对路径
-
-	// 扫描 tasks 目录下的所有 .go 文件
-	err := filepath.Walk(asksDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if strings.HasSuffix(info.Name(), ".go") {
-			// 解析 Go 源代码
-			fset := token.NewFileSet()
-			node, err := parser.ParseFile(fset, path, nil, parser.AllErrors)
-			if err != nil {
-				return err
-			}
-
-			// 遍历文件中的所有声明
-			for _, decl := range node.Decls {
-				if fn, ok := decl.(*ast.FuncDecl); ok {
-					if strings.HasPrefix(fn.Name.Name, "Task_") {
-						fmt.Printf("Found function: %s\n", fn.Name.Name) // 打印函数名称
-
-						// 生成任务数据结构
-						taskID := fn.Name.Name
-						fnValue := reflect.ValueOf(tasks.Task{}).MethodByName(taskID)
-						if fnValue.IsValid() && fnValue.Type().NumIn() == 0 {
-							// 提交任务到任务池
-							pool.Submit(fnValue.Interface().(func()), 1, 3, taskID)
-							fmt.Printf("Loaded task: %s\n", taskID)
-						}
-					}
-				}
-			}
-		}
-		return nil
-	})
-
-	if err != nil {
-		fmt.Printf("Error loading tasks: %v\n", err)
-	}
 }

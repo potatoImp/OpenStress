@@ -33,39 +33,41 @@ package pool
 
 import (
 	"fmt"
-	"log"
+	"time"
 )
 
 // CustomError 自定义错误类型
 // 用于描述不同的错误情况
 type CustomError struct {
-	Message string
-	Code    int
+	Message   string
+	Code      int
+	Timestamp time.Time
+	Stack     string
 }
 
 // Error 实现 error 接口
 // 返回错误信息
 func (e *CustomError) Error() string {
-	return fmt.Sprintf("Error %d: %s", e.Code, e.Message)
+	return fmt.Sprintf("Error %d: %s | Timestamp: %s | Stack: %s", e.Code, e.Message, e.Timestamp.Format("2006-01-02 15:04:05.000"), e.Stack)
 }
 
 // HandleError 处理错误并记录日志
 // 记录日志级别为 ERROR
-func HandleError(err error) {
-	if err != nil {
-		logger, logErr := NewStressLogger("logs/", "error.log", "ErrorModule")
-		if logErr != nil {
-			log.Println("Failed to create logger:", logErr)
-			return
-		}
-		logger.Log("ERROR", "Error occurred: " + err.Error()) // 记录错误信息
-	}
-}
+// func HandleError(err error) {
+// 	if err != nil {
+// 		logger, logErr := NewStressLogger("logs/", "error.log", "ErrorModule")
+// 		if logErr != nil {
+// 			log.Println("Failed to create logger:", logErr)
+// 			return
+// 		}
+// 		logger.Log("ERROR", "Error occurred: "+err.Error()) // 记录错误信息
+// 	}
+// }
 
 // ExampleFunction 示例函数
 // 演示如何使用自定义错误类型
-func ExampleFunction() {
-	// 模拟一个错误
-	err := &CustomError{Message: "Something went wrong", Code: 500}
-	HandleError(err)
-}
+// func ExampleFunction() {
+// 	// 模拟一个错误
+// 	err := &CustomError{Message: "Something went wrong", Code: 500}
+// 	HandleError(err)
+// }

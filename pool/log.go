@@ -9,78 +9,142 @@
 // - 日志切割与压缩
 // - 日志过期清理
 //
-// 技术实现细节：
-// 1. 使用 lumberjack 包实现日志文件的切割与压缩。
-// 2. 提供多级别的日志记录功能，包括 DEBUG、INFO、WARNING 和 ERROR。
-// 3. 支持异步日志记录，提高日志写入性能。
-// 4. 提供日志文件的自动管理，包括文件大小和保留天数的配置。
 
 package pool
 
 import (
-	"log"
 	"os"
+	"runtime"
 	"sync"
 	"time"
 
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
-// StressLogger 结构体
-// 记录器结构体
-// 包含异步日志通道和日志文件
-// 以及日志切割配置
-
 type StressLogger struct {
-	file    *lumberjack.Logger
-	logger  *log.Logger
-	logChan chan string
+	logger  *zap.Logger
+	logChan chan *LogEntry
 	wg      sync.WaitGroup
-	module  string // 当前模块名
+	module  string
+	file    *lumberjack.Logger
 }
 
-// NewStressLogger 创建新的 StressLogger 实例，支持输出到文件和控制台
+type LogEntry struct {
+	level   string
+	message string
+}
+
 func NewStressLogger(logDir, logFile, moduleName string) (*StressLogger, error) {
 	if err := os.MkdirAll(logDir, os.ModePerm); err != nil {
 		return nil, err
 	}
 
+	fileWriter := &lumberjack.Logger{
+		Filename:   logDir + logFile,
+		MaxSize:    10,
+		MaxBackups: 3,
+		MaxAge:     28,
+		Compress:   true,
+	}
+
+	// 配置日志的编码器，增加对时间、模块、行号的支持
+	encoderConfig := zap.NewProductionEncoderConfig()
+	encoderConfig.EncodeTime = zapcore.TimeEncoderOfLayout("2006-01-02 15:04:05.000")
+	encoderConfig.EncodeCaller = zapcore.FullCallerEncoder
+	encoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
+
+	// 设置日志输出，控制台和文件同时输出
+	core := zapcore.NewCore(
+		zapcore.NewJSONEncoder(encoderConfig),
+		zapcore.NewMultiWriteSyncer(zapcore.AddSync(os.Stdout), zapcore.AddSync(fileWriter)),
+		zap.InfoLevel,
+	)
+
+	logger := zap.New(core)
+
 	stressLogger := &StressLogger{
-		file: &lumberjack.Logger{
-			Filename:   logDir + logFile,
-			MaxSize:    10, // MB
-			MaxBackups: 3,
-			MaxAge:     28, // days
-			Compress:   true,
-		},
-		logger:  log.New(os.Stdout, "[INFO] ", log.Ldate|log.Ltime|log.Lshortfile),
-		logChan: make(chan string, 1000),
+		logger:  logger,
+		logChan: make(chan *LogEntry, 1000),
 		module:  moduleName,
+		file:    fileWriter,
 	}
 	stressLogger.start()
 	return stressLogger, nil
 }
 
-// Log 记录日志
 func (l *StressLogger) Log(level string, message string) {
-	currentTime := time.Now().Format("2006-01-02 15:04:05.000") // 毫秒级时间
-	logMessage := currentTime + " [" + level + "] [" + l.module + "] " + message
+	// 创建日志条目
+	logMessage := &LogEntry{
+		level:   level,
+		message: message,
+	}
+
+	// 将日志消息推送到通道，支持异步批量记录
 	l.logChan <- logMessage
 }
 
-// start 启动异步日志记录
 func (l *StressLogger) start() {
 	l.wg.Add(1)
 	go func() {
 		defer l.wg.Done()
-		for msg := range l.logChan {
-			l.logger.Println(msg)
-			l.file.Write([]byte(msg + "\n"))
+
+		// 批量异步记录日志
+		var logs []LogEntry
+
+		for logMsg := range l.logChan {
+			// 将日志信息从通道读取并附加到日志数组中
+			logs = append(logs, *logMsg)
+
+			// 当数组中有超过10条日志时，批量处理
+			if len(logs) >= 10 {
+				l.flushLogs(logs)
+				logs = nil
+			}
+		}
+
+		// 处理剩余的日志
+		if len(logs) > 0 {
+			l.flushLogs(logs)
 		}
 	}()
 }
 
-// Close 关闭日志文件和等待异步日志写入完成
+func (l *StressLogger) flushLogs(logs []LogEntry) {
+	for _, logMsg := range logs {
+		// 获取调用栈信息
+		_, file, line, ok := runtime.Caller(2) // 获取日志函数调用的堆栈信息
+		if !ok {
+			file = "unknown"
+			line = 0
+		}
+
+		// 获取当前时间
+		currentTime := time.Now().Format("2006-01-02 15:04:05.000")
+		logEntry := map[string]interface{}{
+			"timestamp": currentTime,
+			"level":     logMsg.level,
+			"module":    l.module,
+			"message":   logMsg.message,
+			"file":      file,
+			"line":      line,
+		}
+
+		// 根据日志级别记录不同的日志
+		switch logMsg.level {
+		case "INFO":
+			l.logger.Info(logMsg.message, zap.Any("details", logEntry))
+		case "WARN":
+			l.logger.Warn(logMsg.message, zap.Any("details", logEntry))
+		case "ERROR":
+			l.logger.Error(logMsg.message, zap.Any("details", logEntry))
+		default:
+			l.logger.Debug(logMsg.message, zap.Any("details", logEntry))
+		}
+	}
+}
+
 func (l *StressLogger) Close() {
 	close(l.logChan) // 关闭日志通道
 	l.wg.Wait()      // 等待所有日志写入完成
