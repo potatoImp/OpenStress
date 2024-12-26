@@ -10,6 +10,10 @@ OpenStress is an open-source task management and logging framework designed to s
 
 - **Error Handling**: OpenStress includes a robust error handling mechanism, allowing developers to define custom error types and manage error states effectively. This enhances the reliability of applications built with OpenStress.
 
+- **Web-Based Task Management Interface**: OpenStress provides a visual web interface for task management, complete with user authentication and API endpoints for starting and stopping tasks. It also supports Swagger documentation for easy integration and usage.
+
+- **Simplified Development Process**: Developers can focus solely on executing tasks without worrying about creating and managing coroutine pools or handling concurrency pressure. OpenStress takes care of standard test data collection, output, and reporting, streamlining the development workflow.
+
 - **Easy Integration**: Designed with simplicity in mind, OpenStress can be easily integrated into existing Go projects. The modular architecture allows for seamless usage alongside other libraries and frameworks.
 
 - **Open Source**: As an open-source project, OpenStress encourages community contributions and collaboration. Developers can freely use, modify, and distribute the framework, fostering an environment of innovation and improvement.
