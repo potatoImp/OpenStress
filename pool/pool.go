@@ -56,6 +56,7 @@ type Pool struct {
 	isPaused      int32         // 0 means running, 1 means paused
 	shutdownFlag  int32         // 0 means not shutdown, 1 means shutdown
 	workerExit    chan struct{} // Channel to signal workers to exit gracefully
+	isRepeating   bool          // Flag to control repeating task execution
 }
 
 // NewPool creates a new Pool with the specified maximum number of workers.
@@ -109,6 +110,15 @@ func (p *Pool) worker() {
 				continue
 			}
 
+			// If tasks are empty and we are repeating, keep executing initial tasks
+			if len(p.tasks) == 0 && p.isRepeating {
+				stressLogger.Log("DEBUG", "Queue is empty, but repeating tasks are active")
+				// Re-push the initial tasks to the queue
+				p.rePushTasks()
+				time.Sleep(100 * time.Millisecond)
+				continue
+			}
+
 			// Try to pop a task from the queue and execute it
 			if len(p.tasks) > 0 {
 				task := heap.Pop(&p.tasks).(*Task)
@@ -156,7 +166,7 @@ func (p *Pool) executeTask(task *Task) {
 }
 
 // Submit adds a new task to the pool.
-func (p *Pool) Submit(fn func(), priority int, retries int, taskID string, timeout time.Duration) {
+func (p *Pool) Submit(fn func(), priority int, retries int, taskID string, timeout time.Duration, isRepeating bool) {
 	stressLogger.Log("INFO", fmt.Sprintf("Submitting task %s with priority %d", taskID, priority))
 
 	task := &Task{
@@ -167,10 +177,26 @@ func (p *Pool) Submit(fn func(), priority int, retries int, taskID string, timeo
 		maxRetries: 3, // Maximum retries
 		timeout:    timeout,
 	}
+
+	// If repeating tasks are enabled, mark the flag
+	if isRepeating {
+		p.isRepeating = true
+	}
+
 	heap.Push(&p.tasks, task)
 	atomic.AddInt32(&p.activeWorkers, 1)
 
 	stressLogger.Log("INFO", fmt.Sprintf("Task %s submitted successfully", taskID))
+}
+
+// rePushTasks re-pushes initial tasks to the queue to ensure they keep running.
+func (p *Pool) rePushTasks() {
+	stressLogger.Log("INFO", "Re-pushing initial tasks to the queue")
+
+	// Here we just re-push the tasks to the queue (you can modify this to track specific tasks)
+	for _, task := range p.tasks {
+		heap.Push(&p.tasks, task)
+	}
 }
 
 // Shutdown gracefully stops the pool and waits for all tasks to complete.

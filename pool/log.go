@@ -79,7 +79,9 @@ func InitializeLogger(logDir, logFile, moduleName string) (*StressLogger, error)
 
 		core := zapcore.NewCore(
 			zapcore.NewJSONEncoder(encoderConfig),
-			zapcore.NewMultiWriteSyncer(zapcore.AddSync(os.Stdout), zapcore.AddSync(fileWriter)),
+			// 写入到文件且输出到控制台
+			// zapcore.NewMultiWriteSyncer(zapcore.AddSync(os.Stdout), zapcore.AddSync(fileWriter)),
+			zapcore.AddSync(fileWriter), // 只使用文件写入器
 			zap.InfoLevel,
 		)
 

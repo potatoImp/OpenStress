@@ -2,8 +2,8 @@ package main
 
 import (
 	"OpenStress/pool"
+	"OpenStress/tests"
 	"fmt"
-	"time"
 )
 
 var logger *pool.StressLogger
@@ -71,47 +71,8 @@ func main() {
 	// // 模拟错误处理并记录日志
 	// handleError(err)
 
-	// 创建一个新的协程池
-	// 创建一个新的协程池
-	maxWorkers := 5
-	pool := pool.NewPool(maxWorkers)
-
-	// 定义任务
-	taskFunc := func(taskID string, duration time.Duration) func() {
-		return func() {
-			fmt.Printf("Task %s is running...\n", taskID)
-			time.Sleep(duration) // 模拟任务执行
-			fmt.Printf("Task %s completed.\n", taskID)
-		}
-	}
-
-	// 提交不同优先级的任务到池中
-	// 高优先级任务
-	for i := 1; i <= 3; i++ {
-		taskID := fmt.Sprintf("High-Priority-Task-%d", i)
-		pool.Submit(taskFunc(taskID, 1*time.Second), 3, 2, taskID, 5*time.Second) // 高优先级
-	}
-
-	// 中优先级任务
-	for i := 1; i <= 3; i++ {
-		taskID := fmt.Sprintf("Medium-Priority-Task-%d", i)
-		pool.Submit(taskFunc(taskID, 2*time.Second), 2, 2, taskID, 5*time.Second) // 中优先级
-	}
-
-	// 低优先级任务
-	for i := 1; i <= 4; i++ {
-		taskID := fmt.Sprintf("Low-Priority-Task-%d", i)
-		pool.Submit(taskFunc(taskID, 3*time.Second), 1, 2, taskID, 5*time.Second) // 低优先级
-	}
-
-	// 启动协程池
-	pool.Start()
-	fmt.Println("Pool started.")
-
-	// 等待一段时间后关闭池
-	time.Sleep(15 * time.Second)
-	pool.Shutdown()
-	fmt.Println("Pool shutdown.")
+	// pool 模块测试方法
+	tests.TestTaskPool1()
 }
 
 // handleError 处理错误并记录日志
