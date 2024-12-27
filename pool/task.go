@@ -99,27 +99,36 @@
 //   - 利用 StressLogger 的异步日志机制
 //   - 使用缓冲通道避免日志阻塞
 //   - 支持日志文件自动切割，避免单文件过大
+
 package pool
 
 import (
+	"OpenStress/tasks"
 	"fmt"
-	"sync"
+	"go/ast"
+	"go/parser"
+	"go/token"
+	"os"
+	"path/filepath"
+	"reflect"
+	"strings"
+	"sync/atomic"
 	"time"
 )
 
 // TaskStatus 定义任务状态
-type TaskStatus int
+type TaskStatus int32
 
 const (
-	TaskPending TaskStatus = iota
-	TaskRunning
-	TaskCompleted
-	TaskFailed
-	TaskCancelled
-	TaskTimeout
+	TaskPending   TaskStatus = iota // 0
+	TaskRunning                     // 1
+	TaskCompleted                   // 2
+	TaskFailed                      // 3
+	TaskCancelled                   // 4
+	TaskTimeout                     // 5
 )
 
-// String 返回TaskStatus的字符串表示
+// String 返回 TaskStatus 的字符串表示
 func (s TaskStatus) String() string {
 	switch s {
 	case TaskPending:
@@ -140,72 +149,28 @@ func (s TaskStatus) String() string {
 }
 
 // TaskDetail 任务结构体
-// 用于管理和执行单个任务的所有相关信息和状态
 type TaskDetail struct {
-	// ID 任务的唯一标识符
-	// 用于在日志和错误信息中标识特定任务
-	ID           string
-
-	// Status 任务当前状态
-	// 可能的值：Pending（待执行）、Running（执行中）、
-	// Completed（已完成）、Failed（失败）、
-	// Cancelled（已取消）、Timeout（超时）
-	Status       TaskStatus
-
-	// Execute 任务的执行函数
-	// 包含实际需要执行的业务逻辑
-	// 返回 error 表示执行是否成功
-	Execute      func() error
-
-	// RetryCount 当前重试次数
-	// 记录任务已经重试了多少次
-	RetryCount   int
-
-	// MaxRetries 最大重试次数
-	// 任务失败后最多允许重试的次数
-	MaxRetries   int
-
-	// RetryDelay 重试间隔时间
-	// 两次重试之间的等待时间
-	RetryDelay   time.Duration
-
-	// Timeout 任务超时时间
-	// 如果任务执行时间超过此值，将被标记为超时
-	Timeout      time.Duration
-
-	// Priority 任务优先级
-	// 数值越大优先级越高，用于任务调度
-	Priority     int
-
-	// Dependencies 任务依赖列表
-	// 存储当前任务依赖的其他任务
-	// 只有依赖的任务全部完成，当前任务才能执行
-	Dependencies []*TaskDetail
-
-	// StartTime 任务开始执行的时间
-	// 用于计算任务执行时长和超时判断
-	StartTime    time.Time
-
-	// EndTime 任务结束时间
-	// 包括正常完成、失败、取消等所有结束状态
-	EndTime      time.Time
-
-	// Error 任务执行过程中的错误信息
-	// 如果任务执行失败，这里存储具体的错误原因
-	Error        error
-
-	// mu 互斥锁
-	// 用于保护任务状态的并发访问
-	// 确保任务状态的修改是线程安全的
-	mu           sync.Mutex
+	ID           string        // 任务唯一标识符
+	Status       TaskStatus    // 任务当前状态，使用原子操作
+	Execute      func() error  // 任务执行函数
+	RetryCount   int32         // 当前重试次数，使用原子操作
+	MaxRetries   int32         // 最大重试次数
+	RetryDelay   time.Duration // 重试间隔
+	Timeout      time.Duration // 任务超时时间
+	Priority     int32         // 任务优先级
+	Dependencies []*TaskDetail // 依赖任务
+	StartTime    time.Time     // 任务开始时间
+	EndTime      time.Time     // 任务结束时间
+	Error        error         // 任务执行中的错误信息
 }
 
+// Logger 用于记录日志
 var logger *StressLogger
 
-// InitLogger 初始化全局日志记录器
+// InitLogger 初始化日志记录器
 func InitLogger(logDir, logFile string) error {
 	var err error
-	logger, err = NewStressLogger(logDir, logFile, "TaskModule")
+	logger, err = InitializeLogger(logDir, logFile, "TaskModule")
 	return err
 }
 
@@ -230,20 +195,16 @@ func NewTaskDetail(id string, execute func() error) (*TaskDetail, error) {
 
 // Start 开始执行任务
 func (t *TaskDetail) Start() error {
-	t.mu.Lock()
-	if t.Status != TaskPending {
-		t.mu.Unlock()
+	if !atomic.CompareAndSwapInt32((*int32)(&t.Status), int32(TaskPending), int32(TaskRunning)) {
 		return fmt.Errorf("task %s is not in pending status", t.ID)
 	}
-	t.Status = TaskRunning
-	t.StartTime = time.Now()
-	t.mu.Unlock()
 
+	t.StartTime = time.Now()
 	logger.Log("INFO", fmt.Sprintf("Task %s started at %v", t.ID, t.StartTime))
 
 	// 检查依赖任务
 	if err := t.checkDependencies(); err != nil {
-		t.setStatus(TaskFailed)
+		atomic.StoreInt32((*int32)(&t.Status), int32(TaskFailed))
 		return err
 	}
 
@@ -257,18 +218,16 @@ func (t *TaskDetail) Start() error {
 // executeTask 执行任务的核心逻辑
 func (t *TaskDetail) executeTask() error {
 	err := t.Execute()
-	t.mu.Lock()
-	t.EndTime = time.Now()
 	if err != nil {
+		atomic.StoreInt32((*int32)(&t.Status), int32(TaskFailed))
 		t.Error = err
-		t.Status = TaskFailed
 		logger.Log("ERROR", fmt.Sprintf("Task %s failed: %v", t.ID, err))
-		t.mu.Unlock()
-		return t.Retry()
+		return t.retry()
 	}
-	t.Status = TaskCompleted
-	t.mu.Unlock()
-	
+
+	atomic.StoreInt32((*int32)(&t.Status), int32(TaskCompleted))
+	t.EndTime = time.Now()
+
 	duration := t.EndTime.Sub(t.StartTime)
 	logger.Log("INFO", fmt.Sprintf("Task %s completed successfully in %v", t.ID, duration))
 	return nil
@@ -285,66 +244,53 @@ func (t *TaskDetail) executeWithTimeout() error {
 	case err := <-done:
 		return err
 	case <-time.After(t.Timeout):
-		t.setStatus(TaskTimeout)
+		atomic.StoreInt32((*int32)(&t.Status), int32(TaskTimeout))
 		logger.Log("ERROR", fmt.Sprintf("Task %s timed out after %v", t.ID, t.Timeout))
 		return fmt.Errorf("task %s timed out", t.ID)
 	}
 }
 
-// Retry 重试任务
-func (t *TaskDetail) Retry() error {
-	t.mu.Lock()
-	if t.RetryCount >= t.MaxRetries {
-		t.mu.Unlock()
+// retry 重试任务
+func (t *TaskDetail) retry() error {
+	if atomic.LoadInt32((*int32)(&t.RetryCount)) >= t.MaxRetries {
 		logger.Log("ERROR", fmt.Sprintf("Task %s exceeded maximum retry attempts (%d)", t.ID, t.MaxRetries))
 		return fmt.Errorf("exceeded maximum retry attempts")
 	}
-	t.RetryCount++
-	currentRetry := t.RetryCount
-	t.mu.Unlock()
+
+	atomic.AddInt32((*int32)(&t.RetryCount), 1)
+	currentRetry := atomic.LoadInt32((*int32)(&t.RetryCount))
 
 	logger.Log("WARNING", fmt.Sprintf("Retrying task %s (attempt %d/%d)", t.ID, currentRetry, t.MaxRetries))
 	time.Sleep(t.RetryDelay)
-	
+
 	return t.executeTask()
 }
 
 // Cancel 取消任务
 func (t *TaskDetail) Cancel() error {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
-	if t.Status == TaskRunning || t.Status == TaskPending {
-		t.Status = TaskCancelled
-		logger.Log("WARNING", fmt.Sprintf("Task %s cancelled", t.ID))
-		return nil
+	if !atomic.CompareAndSwapInt32((*int32)(&t.Status), int32(TaskRunning), int32(TaskCancelled)) &&
+		!atomic.CompareAndSwapInt32((*int32)(&t.Status), int32(TaskPending), int32(TaskCancelled)) {
+		return fmt.Errorf("task %s cannot be cancelled in status %v", t.ID, t.Status.String())
 	}
-	return fmt.Errorf("task %s cannot be cancelled in status %v", t.ID, t.Status.String())
+
+	logger.Log("WARNING", fmt.Sprintf("Task %s cancelled", t.ID))
+	return nil
 }
 
 // AddDependency 添加任务依赖
 func (t *TaskDetail) AddDependency(dep *TaskDetail) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
 	t.Dependencies = append(t.Dependencies, dep)
 	logger.Log("INFO", fmt.Sprintf("Added dependency: Task %s now depends on Task %s", t.ID, dep.ID))
 }
 
 // SetPriority 设置任务优先级
-func (t *TaskDetail) SetPriority(priority int) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
-	t.Priority = priority
+func (t *TaskDetail) SetPriority(priority int32) {
+	atomic.StoreInt32((*int32)(&t.Priority), priority)
 	logger.Log("INFO", fmt.Sprintf("Task %s priority set to %d", t.ID, priority))
 }
 
 // SetTimeout 设置任务超时时间
 func (t *TaskDetail) SetTimeout(timeout time.Duration) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
 	t.Timeout = timeout
 	logger.Log("INFO", fmt.Sprintf("Task %s timeout set to %v", t.ID, timeout))
 }
@@ -352,7 +298,7 @@ func (t *TaskDetail) SetTimeout(timeout time.Duration) {
 // checkDependencies 检查依赖任务是否完成
 func (t *TaskDetail) checkDependencies() error {
 	for _, dep := range t.Dependencies {
-		if dep.Status != TaskCompleted {
+		if atomic.LoadInt32((*int32)(&dep.Status)) != int32(TaskCompleted) {
 			logger.Log("ERROR", fmt.Sprintf("Dependency task %s is not completed (status: %v)", dep.ID, dep.Status))
 			return fmt.Errorf("dependency task %s is not completed", dep.ID)
 		}
@@ -360,11 +306,67 @@ func (t *TaskDetail) checkDependencies() error {
 	return nil
 }
 
-// setStatus 设置任务状态
-func (t *TaskDetail) setStatus(status TaskStatus) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
+// LoadTasks 自动加载任务到任务池
+func LoadTasks(pool *Pool) {
+	fmt.Println("Loading tasks...")
+	taskType := reflect.TypeOf(tasks.Task{})
+	for i := 0; i < taskType.NumMethod(); i++ {
+		method := taskType.Method(i)
+		if method.Type.NumIn() == 0 && strings.HasPrefix(method.Name, "Task_") {
+			taskID := method.Name
+			fn := method.Func.Interface().(func())
+			priority := int32(1)        // 可以根据需要设置优先级
+			maxRetries := int32(3)      // 设置最大重试次数
+			timeout := time.Second * 10 // 设置任务超时时间
+			pool.Submit(fn, int(priority), int(maxRetries), taskID, timeout)
+			fmt.Printf("Loaded task: %s\n", taskID)
+		}
+	}
+}
 
-	t.Status = status
-	logger.Log("INFO", fmt.Sprintf("Task %s status changed to %v", t.ID, status))
+// LoadTasks2 自动加载任务到任务池
+func LoadTasks2(pool *Pool) {
+	fmt.Println("Loading tasks...11111111111111")
+
+	wd, pwdErr := os.Getwd()
+	if pwdErr != nil {
+		fmt.Printf("Error getting current directory: %v\n", pwdErr)
+		return
+	}
+
+	asksDir := filepath.Join(wd, "tasks")
+
+	err := filepath.Walk(asksDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if strings.HasSuffix(info.Name(), ".go") {
+			fset := token.NewFileSet()
+			node, err := parser.ParseFile(fset, path, nil, parser.AllErrors)
+			if err != nil {
+				return err
+			}
+
+			for _, decl := range node.Decls {
+				if fn, ok := decl.(*ast.FuncDecl); ok {
+					if strings.HasPrefix(fn.Name.Name, "Task_") {
+						fmt.Printf("Found function: %s\n", fn.Name.Name)
+
+						taskID := fn.Name.Name
+						fnValue := reflect.ValueOf(tasks.Task{}).MethodByName(taskID)
+						if fnValue.IsValid() && fnValue.Type().NumIn() == 0 {
+							pool.Submit(fnValue.Interface().(func()), 1, 3, taskID, time.Second*10)
+							fmt.Printf("Loaded task: %s\n", taskID)
+						}
+					}
+				}
+			}
+		}
+		return nil
+	})
+
+	if err != nil {
+		fmt.Printf("Error loading tasks: %v\n", err)
+	}
 }

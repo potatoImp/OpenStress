@@ -13,6 +13,7 @@
 package pool
 
 import (
+	"fmt"
 	"os"
 	"runtime"
 	"sync"
@@ -23,6 +24,7 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
+// StressLogger 表示一个日志记录器
 type StressLogger struct {
 	logger  *zap.Logger
 	logChan chan *LogEntry
@@ -31,113 +33,139 @@ type StressLogger struct {
 	file    *lumberjack.Logger
 }
 
+// LogEntry 表示一条日志记录
 type LogEntry struct {
 	level   string
 	message string
 }
 
-func NewStressLogger(logDir, logFile, moduleName string) (*StressLogger, error) {
-	if err := os.MkdirAll(logDir, os.ModePerm); err != nil {
-		return nil, err
+// Declare a global variable to hold the logger instance
+var globalLogger *StressLogger
+
+// This function is now only responsible for starting the logger if not already started
+func GetLogger() (*StressLogger, error) {
+	if globalLogger == nil {
+		return nil, fmt.Errorf("logger not initialized")
 	}
-
-	fileWriter := &lumberjack.Logger{
-		Filename:   logDir + logFile,
-		MaxSize:    10,
-		MaxBackups: 3,
-		MaxAge:     28,
-		Compress:   true,
-	}
-
-	// 配置日志的编码器，增加对时间、模块、行号的支持
-	encoderConfig := zap.NewProductionEncoderConfig()
-	encoderConfig.EncodeTime = zapcore.TimeEncoderOfLayout("2006-01-02 15:04:05.000")
-	encoderConfig.EncodeCaller = zapcore.FullCallerEncoder
-	encoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
-
-	// 设置日志输出，控制台和文件同时输出
-	core := zapcore.NewCore(
-		zapcore.NewJSONEncoder(encoderConfig),
-		zapcore.NewMultiWriteSyncer(zapcore.AddSync(os.Stdout), zapcore.AddSync(fileWriter)),
-		zap.InfoLevel,
-	)
-
-	logger := zap.New(core)
-
-	stressLogger := &StressLogger{
-		logger:  logger,
-		logChan: make(chan *LogEntry, 1000),
-		module:  moduleName,
-		file:    fileWriter,
-	}
-	stressLogger.start()
-	return stressLogger, nil
+	return globalLogger, nil
 }
 
+var once sync.Once
+
+func InitializeLogger(logDir, logFile, moduleName string) (*StressLogger, error) {
+	var err error
+	once.Do(func() {
+		if globalLogger != nil {
+			return
+		}
+
+		// Ensure the log directory exists
+		if err = os.MkdirAll(logDir, os.ModePerm); err != nil {
+			return
+		}
+
+		fileWriter := &lumberjack.Logger{
+			Filename:   logDir + logFile,
+			MaxSize:    10,
+			MaxBackups: 3,
+			MaxAge:     28,
+			Compress:   true,
+		}
+
+		encoderConfig := zap.NewProductionEncoderConfig()
+		encoderConfig.EncodeTime = zapcore.TimeEncoderOfLayout("2006-01-02 15:04:05.000")
+		encoderConfig.EncodeCaller = zapcore.FullCallerEncoder
+		encoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
+
+		core := zapcore.NewCore(
+			zapcore.NewJSONEncoder(encoderConfig),
+			zapcore.NewMultiWriteSyncer(zapcore.AddSync(os.Stdout), zapcore.AddSync(fileWriter)),
+			zap.InfoLevel,
+		)
+
+		logger := zap.New(core)
+
+		stressLogger = &StressLogger{
+			logger:  logger,
+			logChan: make(chan *LogEntry, 1000),
+			module:  moduleName,
+			file:    fileWriter,
+		}
+
+		// Start the logger's asynchronous processing
+		stressLogger.start()
+
+		globalLogger = stressLogger
+	})
+	return globalLogger, err
+}
+
+// Log records a log entry
 func (l *StressLogger) Log(level string, message string) {
-	// 创建日志条目
+	// Create a log entry
 	logMessage := &LogEntry{
 		level:   level,
 		message: message,
 	}
 
-	// 将日志消息推送到通道，支持异步批量记录
+	// Push the log message into the channel for asynchronous batch processing
 	l.logChan <- logMessage
 }
 
+// start begins the process of handling log messages asynchronously
 func (l *StressLogger) start() {
 	l.wg.Add(1)
 	go func() {
 		defer l.wg.Done()
 
-		// 批量异步记录日志
+		// Batch logs asynchronously
 		var logs []LogEntry
 
 		for logMsg := range l.logChan {
-			// 将日志信息从通道读取并附加到日志数组中
 			logs = append(logs, *logMsg)
 
-			// 当数组中有超过10条日志时，批量处理
+			// Process logs when there are 10 or more
 			if len(logs) >= 10 {
 				l.flushLogs(logs)
 				logs = nil
 			}
 		}
 
-		// 处理剩余的日志
+		// Process any remaining logs
 		if len(logs) > 0 {
 			l.flushLogs(logs)
 		}
 	}()
 }
 
+// flushLogs writes a batch of logs to the storage
 func (l *StressLogger) flushLogs(logs []LogEntry) {
 	for _, logMsg := range logs {
-		// 获取调用栈信息
-		_, file, line, ok := runtime.Caller(2) // 获取日志函数调用的堆栈信息
+		// Get stack trace information
+		_, file, line, ok := runtime.Caller(2) // Get the stack trace of the log function call
 		if !ok {
 			file = "unknown"
 			line = 0
 		}
 
-		// 获取当前时间
+		// Get the current timestamp
 		currentTime := time.Now().Format("2006-01-02 15:04:05.000")
 		logEntry := map[string]interface{}{
 			"timestamp": currentTime,
 			"level":     logMsg.level,
 			"module":    l.module,
 			"message":   logMsg.message,
-			"file":      file,
-			"line":      line,
 		}
 
-		// 根据日志级别记录不同的日志
+		// Record logs based on their level
 		switch logMsg.level {
 		case "INFO":
+			// Only record essential info
 			l.logger.Info(logMsg.message, zap.Any("details", logEntry))
-		case "WARN":
-			l.logger.Warn(logMsg.message, zap.Any("details", logEntry))
-		case "ERROR":
+		case "ERROR", "DEBUG":
+			// ERROR and DEBUG levels include file and line information
+			logEntry["file"] = file
+			logEntry["line"] = line
 			l.logger.Error(logMsg.message, zap.Any("details", logEntry))
 		default:
 			l.logger.Debug(logMsg.message, zap.Any("details", logEntry))
@@ -145,9 +173,10 @@ func (l *StressLogger) flushLogs(logs []LogEntry) {
 	}
 }
 
+// Close stops the logger and ensures all logs are written
 func (l *StressLogger) Close() {
-	close(l.logChan) // 关闭日志通道
-	l.wg.Wait()      // 等待所有日志写入完成
+	close(l.logChan) // Close the log channel
+	l.wg.Wait()      // Wait for all logs to be processed
 	if l.file != nil {
 		l.file.Close()
 	}

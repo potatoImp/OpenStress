@@ -27,6 +27,25 @@
 //    - 允许在运行时修改配置，并立即生效。
 //    - 提供通知机制，告知系统其他部分配置已被更新。
 // 5. 增加日志记录功能，记录配置加载和更新的操作。
+// 6. 实现一个全局配置用于控制服务启动时是否启动与api相关的接口监听功能
 
 package config
+
+// Config 结构体用于存储全局配置
+// 该结构体包含控制服务启动时的配置选项
+// - EnableAPIServer: 控制是否启动 API 接口监听功能
+// - OtherConfig: 其他相关配置
+
+type Config struct {
+	EnableAPIServer bool // 是否启用 API 接口监听功能
+	// 其他配置项...
+}
+
+// NewConfig 创建一个新的配置实例
+func NewConfig() *Config {
+	return &Config{
+		EnableAPIServer: true, // 默认启用 API 接口监听功能
+	}
+}
+
 // TODO: 实现配置参数管理功能

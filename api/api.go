@@ -1,49 +1,183 @@
 // api.go
-// API 接口模块
-// 本文件负责提供用户提交任务的 API 接口。
-// 主要功能包括：
-// - 提交任务到协程池
-// - 设置最大并发数和限流控制
-// - 查询任务执行状态
-// - 查询可执行任务列表
-// - 启动、暂停与停止并发任务
-// - 查询正在执行的任务
-// - 身份验证与授权（待实现）
-// - API 文档生成（待实现）
-// 
-// 技术实现细节：
-// 1. 使用 net/http 包实现 HTTP API 接口。
-// 2. 提供 SubmitTask 方法，接收任务参数并将任务提交到协程池。
-// 3. 提供 SetMaxConcurrency 和 SetRateLimit 方法，允许用户设置参数。
-// 4. 提供 GetTaskStatus 方法，查询特定任务的执行状态。
-// 5. 提供 GetAvailableTasks 方法，返回当前可执行的任务列表。
-// 6. 提供 StartPool、PausePool 和 StopPool 方法，控制协程池的生命周期。
-// 7. 提供 GetRunningTasks 方法，返回当前正在执行的任务列表。
-// 8. 实现身份验证和授权机制，确保 API 的安全性。
-// 9. 生成详细的 API 文档，提供使用示例和接口说明。
-// 
-// 待实现功能：
-// 1. 身份验证与授权
-//    - 实现用户身份验证机制，确保只有授权用户可以提交和管理任务。
-//    - 提供不同级别的权限控制，确保 API 的安全性。
-// 2. API 文档生成
-//    - 自动生成详细的 API 文档，包含每个接口的请求和响应示例。
-//    - 提供使用示例，帮助用户快速上手。
-// 3. 错误处理机制
-//    - 统一的错误处理机制，确保所有 API 返回清晰的错误信息。
-//    - 提供错误码和错误描述，帮助用户理解问题。
-// 4. 任务管理功能扩展
-//    - 提供任务取消功能，允许用户在任务执行过程中取消任务。
-//    - 提供任务重试功能，允许用户对失败的任务进行重试。
-// 5. 监控与统计功能
-//    - 提供任务执行的统计信息，例如成功率、平均执行时间等。
-//    - 提供实时监控接口，允许用户查询当前系统负载和任务状态。
-// 
-// 技术实现细节：
-// - 使用 net/http 包实现 HTTP API 接口。
-// - 提供清晰的 API 路由设计，方便用户调用。
-// - 实现中间件机制，支持日志记录和请求处理。
+// API interface module
+// This file is responsible for providing the API interface for users to submit tasks.
+// Main functions include:
+// - Submit tasks to the coroutine pool
+// - Set maximum concurrency and rate limiting
+// - Query task execution status
+// - Query the list of executable tasks
+// - Start, pause, and stop concurrent tasks
+// - Query currently executing tasks
+// - Authentication and authorization (to be implemented)
+// - API documentation generation (to be implemented)
+//
+// Technical implementation details:
+// 1. Use the net/http package to implement the HTTP API interface.
+// 2. Provide the SubmitTask method to receive task parameters and submit tasks to the coroutine pool.
+// 3. Provide SetMaxConcurrency and SetRateLimit methods to allow users to set parameters.
+// 4. Provide the GetTaskStatus method to query the execution status of a specific task.
+// 5. Provide the GetAvailableTasks method to return the current list of executable tasks.
+// 6. Provide StartPool, PausePool, and StopPool methods to control the lifecycle of the coroutine pool.
+// 7. Provide the GetRunningTasks method to return the list of currently executing tasks.
+// 8. Implement authentication and authorization mechanisms to ensure API security.
+// 9. Generate detailed API documentation with usage examples and interface descriptions.
+//
+// Features to be implemented:
+// 1. Authentication and authorization
+//    - Implement user authentication mechanisms to ensure that only authorized users can submit and manage tasks.
+//    - Provide different levels of permission control to ensure API security.
+// 2. API documentation generation
+//    - Automatically generate detailed API documentation, including request and response examples for each interface.
+//    - Provide usage examples to help users get started quickly.
+// 3. Error handling mechanism
+//    - Unified error handling mechanism to ensure all APIs return clear error messages.
+//    - Provide error codes and descriptions to help users understand issues.
+// 4. Task management feature extensions
+//    - Provide task cancellation functionality to allow users to cancel tasks during execution.
+//    - Provide task retry functionality to allow users to retry failed tasks.
+// 5. Monitoring and statistics features
+//    - Provide statistics on task execution, such as success rate, average execution time, etc.
+//    - Provide real-time monitoring interfaces to allow users to query current system load and task status.
+//
+// Use the net/http package to implement the HTTP API interface.
+// Provide clear API routing design for easy user invocation.
+// Implement middleware mechanisms to support logging and request processing.
 
 package api
 
-// TODO: 实现任务提交和管理的 API
+// TODO: Implement task submission and management API
+
+import (
+	"encoding/json"
+	"net/http"
+	"sync"
+
+	"OpenStress/pool" // Assume this is the coroutine pool implementation
+	// "OpenStress/pool/error" // Import error handling module
+)
+
+var (
+	maxConcurrency int
+	rateLimit      int
+	taskPool       *pool.Pool // Assume this is the coroutine pool instance
+	mu             sync.Mutex
+)
+
+// TaskRequest represents the request structure for submitting tasks
+type TaskRequest struct {
+	TaskName string                 `json:"task_name"`
+	Params   map[string]interface{} `json:"params"`
+	TaskID   string                 `json:"task_id"` // New field
+}
+
+// SubmitTask submits tasks to the coroutine pool
+func SubmitTask(w http.ResponseWriter, r *http.Request) {
+	var req TaskRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		errorResponse(w, http.StatusBadRequest, "Invalid request payload")
+		return
+	}
+
+	// Define task priority and retry times
+	priority := 1 // Example priority
+	retries := 3  // Example retry times
+
+	// Submit task to coroutine pool
+	taskPool.Submit(func() {
+		// Execute specific task logic here
+	}, priority, retries, req.TaskID)
+
+	w.WriteHeader(http.StatusAccepted)
+	json.NewEncoder(w).Encode(map[string]string{"status": "task submitted"})
+}
+
+// SetMaxConcurrency sets the maximum concurrency
+func SetMaxConcurrency(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		MaxConcurrency int `json:"max_concurrency"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		errorResponse(w, http.StatusBadRequest, "Invalid request payload")
+		return
+	}
+
+	mu.Lock()
+	maxConcurrency = req.MaxConcurrency
+	mu.Unlock()
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "max concurrency set"})
+}
+
+// SetRateLimit sets the rate limiting
+func SetRateLimit(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		RateLimit int `json:"rate_limit"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		errorResponse(w, http.StatusBadRequest, "Invalid request payload")
+		return
+	}
+
+	mu.Lock()
+	rateLimit = req.RateLimit
+	mu.Unlock()
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "rate limit set"})
+}
+
+// GetTaskStatus queries the execution status of a task
+func GetTaskStatus(w http.ResponseWriter, r *http.Request) {
+	taskID := r.URL.Query().Get("task_id")
+	status, err := taskPool.GetTaskStatus(taskID)
+	if err != nil {
+		errorResponse(w, http.StatusNotFound, "Task not found")
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(status)
+}
+
+// GetAvailableTasks queries the list of executable tasks
+func GetAvailableTasks(w http.ResponseWriter, r *http.Request) {
+	tasks := taskPool.GetAvailableTasks()
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(tasks)
+}
+
+// StartPool starts the coroutine pool
+func StartPool(w http.ResponseWriter, r *http.Request) {
+	taskPool.Start()
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "task pool started"})
+}
+
+// PausePool pauses the coroutine pool
+func PausePool(w http.ResponseWriter, r *http.Request) {
+	taskPool.Pause()
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "task pool paused"})
+}
+
+// StopPool stops the coroutine pool
+func StopPool(w http.ResponseWriter, r *http.Request) {
+	taskPool.Stop()
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "task pool stopped"})
+}
+
+// GetRunningTasks queries the list of currently executing tasks
+func GetRunningTasks(w http.ResponseWriter, r *http.Request) {
+	tasks := taskPool.GetRunningTasks()
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(tasks)
+}
+
+// errorResponse unified error response format
+func errorResponse(w http.ResponseWriter, code int, message string) {
+	w.WriteHeader(code)
+	json.NewEncoder(w).Encode(map[string]string{"error": message})
+}

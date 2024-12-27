@@ -16,72 +16,75 @@ import (
 	// "github.com/your-repo/OpenStress/pool"  // 导入 pool 包
 )
 
-// 认证模块
+// Authentication module
 
-// AuthMode 认证模式
+// AuthMode Authentication mode
 type AuthMode int
 
 const (
-	// ModeLocal 本地模式（仅使用配置文件）
+	// ModeLocal Local mode (uses configuration file only)
 	ModeLocal AuthMode = iota
-	// ModeRedis Redis模式（配置文件+Redis）
+	// ModeRedis Redis mode (configuration file + Redis)
 	ModeRedis
 )
 
-// Permission 权限类型
+// Permission Permission type
 type Permission string
 
 const (
-	PermissionSubmit  Permission = "submit"  // 提交任务权限
-	PermissionManage  Permission = "manage"  // 管理任务权限
-	PermissionMonitor Permission = "monitor" // 监控权限
+	// PermissionSubmit Permission to submit tasks
+	PermissionSubmit  Permission = "submit"
+	// PermissionManage Permission to manage tasks
+	PermissionManage  Permission = "manage"
+	// PermissionMonitor Permission to monitor
+	PermissionMonitor Permission = "monitor"
 )
 
-// UserAuth 用户认证信息
+// UserAuth User authentication information
 type UserAuth struct {
 	Username    string       `yaml:"username" json:"username"`
-	Password    string       `yaml:"password" json:"-"`              // 配置文件中的密码
-	APIKey      string       `yaml:"api_key" json:"api_key"`         // API密钥
-	Permissions []Permission `yaml:"permissions" json:"permissions"` // 权限列表
+	Password    string       `yaml:"password" json:"-"`              // Password in the configuration file
+	APIKey      string       `yaml:"api_key" json:"api_key"`         // API key
+	Permissions []Permission `yaml:"permissions" json:"permissions"` // List of permissions
 }
 
-// AuthConfig 认证配置
+// AuthConfig Authentication configuration
 type AuthConfig struct {
 	Users []UserAuth `yaml:"users"`
 }
 
-// RedisState Redis连接状态
+// RedisState Redis connection state
 type RedisState int
 
 const (
-	// StateDisconnected Redis断开连接
+	// StateDisconnected Redis disconnected
 	StateDisconnected RedisState = iota
-	// StateConnecting Redis正在连接
+	// StateConnecting Redis connecting
 	StateConnecting
-	// StateConnected Redis已连接
+	// StateConnected Redis connected
 	StateConnected
 )
 
-// AuthCache 认证缓存
+// AuthCache Authentication cache
 type AuthCache struct {
-	cache sync.Map // 本地缓存
+	cache sync.Map // Local cache
 	ttl   time.Duration
 }
 
-// cacheItem 缓存项
+// cacheItem Cache item
 type cacheItem struct {
 	auth      *UserAuth
 	timestamp time.Time
 }
 
-// AuthManager 认证管理器
+// AuthManager Authentication manager
 type AuthManager struct {
 	mu              sync.RWMutex
 	config          *AuthConfig
 	mode            AuthMode
 	redisClient     *redis.Client
 	redisOpts       *redis.Options
-	logger          *pool.StressLogger // 使用 StressLogger
+	logger          *pool.StressLogger // Using StressLogger
 	ctx             context.Context
 	cancel          context.CancelFunc
 	redisState      RedisState
@@ -91,31 +94,31 @@ type AuthManager struct {
 	validateChan    chan validateReq
 }
 
-// Logger 日志接口
+// Logger Logging interface
 type Logger interface {
 	Log(level string, message string)
 }
 
-// validateReq 验证请求
+// validateReq Validation request
 type validateReq struct {
 	apiKey   string
 	respChan chan validateResp
 }
 
-// validateResp 验证响应
+// validateResp Validation response
 type validateResp struct {
 	auth *UserAuth
 	err  error
 }
 
-// NewAuthManager 创建认证管理器
+// NewAuthManager Create authentication manager
 func NewAuthManager(configPath string, redisOpts *redis.Options) (*AuthManager, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	// 创建日志记录器
+	// Create logger
 	logger, err := pool.NewStressLogger("logs/", "auth.log", "auth")
 	if err != nil {
-		cancel() // 确保在错误返回时调用 cancel
+		cancel() // Ensure cancel is called on error return
 		return nil, fmt.Errorf("failed to create logger: %v", err)
 	}
 
@@ -131,44 +134,44 @@ func NewAuthManager(configPath string, redisOpts *redis.Options) (*AuthManager, 
 		logger:          logger,
 	}
 
-	// 加载配置文件
+	// Load configuration file
 	if err := am.loadConfig(configPath); err != nil {
-		cancel() // 确保在错误返回时调用 cancel
+		cancel() // Ensure cancel is called on error return
 		logger.Log("ERROR", fmt.Sprintf("Failed to load config: %v", err))
-		am.Close() // 清理资源
+		am.Close() // Clean up resources
 		return nil, fmt.Errorf("failed to load config: %v", err)
 	}
 	logger.Log("INFO", "Configuration loaded successfully")
 
-	// 初始化认证模式
+	// Initialize authentication mode
 	if err := am.initMode(); err != nil {
-		cancel() // 确保在错误返回时调用 cancel
+		cancel() // Ensure cancel is called on error return
 		logger.Log("ERROR", fmt.Sprintf("Failed to init auth mode: %v", err))
-		am.Close() // 清理资源
+		am.Close() // Clean up resources
 		return nil, fmt.Errorf("failed to init auth mode: %v", err)
 	}
 	logger.Log("INFO", fmt.Sprintf("Auth manager initialized in %v mode", am.mode))
 
-	// 启动Redis状态管理器
+	// Start Redis state manager
 	go am.redisStateManager()
 
-	// 启动验证处理器
+	// Start validation processing worker
 	go am.validateWorker()
 
-	// 启动缓存清理
+	// Start cache cleaning worker
 	go am.cacheCleaner()
 
 	return am, nil
 }
 
-// loadConfig 加载配置文件
+// loadConfig Load configuration file
 func (am *AuthManager) loadConfig(configPath string) error {
-	// 实现配置文件加载
+	// Implement configuration file loading
 	if configPath == "" {
 		return fmt.Errorf("config path cannot be empty")
 	}
 
-	// 读取并解析配置文件
+	// Read and parse configuration file
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		return fmt.Errorf("failed to read config file: %v", err)
@@ -183,9 +186,9 @@ func (am *AuthManager) loadConfig(configPath string) error {
 	return nil
 }
 
-// initMode 初始化认证模式
+// initMode Initialize authentication mode
 func (am *AuthManager) initMode() error {
-	// 尝试连接Redis
+	// Attempt to connect to Redis
 	if am.redisOpts != nil {
 		if err := am.asyncConnect(); err != nil {
 			am.logger.Log("WARNING", fmt.Sprintf("Failed to connect to Redis: %v, falling back to local mode", err))
@@ -201,7 +204,7 @@ func (am *AuthManager) initMode() error {
 	return nil
 }
 
-// redisStateManager Redis状态管理器
+// redisStateManager Redis state manager
 func (am *AuthManager) redisStateManager() {
 	reconnectTimer := time.NewTimer(0)
 	defer reconnectTimer.Stop()
@@ -253,7 +256,7 @@ func (am *AuthManager) redisStateManager() {
 	}
 }
 
-// asyncConnect 异步连接Redis
+// asyncConnect Asynchronously connect to Redis
 func (am *AuthManager) asyncConnect() error {
 	if am.redisOpts == nil {
 		return fmt.Errorf("redis options not configured")
@@ -298,7 +301,7 @@ func (am *AuthManager) asyncConnect() error {
 	}
 }
 
-// asyncHealthCheck 异步健康检查
+// asyncHealthCheck Asynchronous health check
 func (am *AuthManager) asyncHealthCheck() {
 	am.mu.RLock()
 	client := am.redisClient
@@ -318,14 +321,14 @@ func (am *AuthManager) asyncHealthCheck() {
 	}
 }
 
-// GetRedisState 获取Redis连接状态
+// GetRedisState Get Redis connection state
 func (am *AuthManager) GetRedisState() RedisState {
 	am.mu.RLock()
 	defer am.mu.RUnlock()
 	return am.redisState
 }
 
-// validateWorker 验证处理工作器
+// validateWorker Validation processing worker
 func (am *AuthManager) validateWorker() {
 	am.logger.Log("INFO", "Starting validation worker")
 	for {
@@ -344,7 +347,7 @@ func (am *AuthManager) validateWorker() {
 	}
 }
 
-// cacheCleaner 缓存清理工作器
+// cacheCleaner Cache cleaning worker
 func (am *AuthManager) cacheCleaner() {
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
@@ -367,18 +370,18 @@ func (am *AuthManager) cacheCleaner() {
 	}
 }
 
-// ValidateAPIKey 异步验证API密钥
+// ValidateAPIKey Asynchronously validate API key
 func (am *AuthManager) ValidateAPIKey(apiKey string) (*UserAuth, error) {
-	// 先检查本地缓存
+	// Check local cache first
 	if auth := am.checkLocalCache(apiKey); auth != nil {
 		am.logger.Log("DEBUG", fmt.Sprintf("API key validation successful (cache hit): %s", apiKey))
 		return auth, nil
 	}
 
-	// 创建响应通道
+	// Create response channel
 	respChan := make(chan validateResp, 1)
 
-	// 发送验证请求
+	// Send validation request
 	select {
 	case am.validateChan <- validateReq{apiKey: apiKey, respChan: respChan}:
 		am.logger.Log("DEBUG", fmt.Sprintf("Validation request queued for API key: %s", apiKey))
@@ -390,7 +393,7 @@ func (am *AuthManager) ValidateAPIKey(apiKey string) (*UserAuth, error) {
 		return am.validateAPIKeyInternal(apiKey)
 	}
 
-	// 等待响应
+	// Wait for response
 	select {
 	case resp := <-respChan:
 		if resp.err != nil {
@@ -408,7 +411,7 @@ func (am *AuthManager) ValidateAPIKey(apiKey string) (*UserAuth, error) {
 	}
 }
 
-// checkLocalCache 检查本地缓存
+// checkLocalCache Check local cache
 func (am *AuthManager) checkLocalCache(apiKey string) *UserAuth {
 	if value, ok := am.localCache.cache.Load(apiKey); ok {
 		if item, ok := value.(cacheItem); ok {
@@ -421,7 +424,7 @@ func (am *AuthManager) checkLocalCache(apiKey string) *UserAuth {
 	return nil
 }
 
-// validateAPIKeyInternal 内部验证API密钥
+// validateAPIKeyInternal Internally validate API key
 func (am *AuthManager) validateAPIKeyInternal(apiKey string) (*UserAuth, error) {
 	am.mu.RLock()
 	mode := am.mode
@@ -438,7 +441,7 @@ func (am *AuthManager) validateAPIKeyInternal(apiKey string) (*UserAuth, error) 
 	}
 
 	if err == nil && auth != nil {
-		// 更新本地缓存
+		// Update local cache
 		am.localCache.cache.Store(apiKey, cacheItem{
 			auth:      auth,
 			timestamp: time.Now(),
@@ -448,7 +451,7 @@ func (am *AuthManager) validateAPIKeyInternal(apiKey string) (*UserAuth, error) 
 	return auth, err
 }
 
-// validateAPIKeyRedis 使用Redis验证API密钥
+// validateAPIKeyRedis Validate API key using Redis
 func (am *AuthManager) validateAPIKeyRedis(apiKey string) (*UserAuth, error) {
 	am.mu.RLock()
 	client := am.redisClient
@@ -461,7 +464,7 @@ func (am *AuthManager) validateAPIKeyRedis(apiKey string) (*UserAuth, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	// 尝试从Redis获取
+	// Attempt to get from Redis
 	data, err := client.Get(ctx, fmt.Sprintf("apikey:%s", apiKey)).Bytes()
 	if err == nil {
 		var auth UserAuth
@@ -470,19 +473,19 @@ func (am *AuthManager) validateAPIKeyRedis(apiKey string) (*UserAuth, error) {
 		}
 	}
 
-	// Redis中未找到，从本地配置查找
+	// Not found in Redis, check local configuration
 	auth, err := am.validateAPIKeyLocal(apiKey)
 	if err != nil {
 		return nil, err
 	}
 
-	// 异步更新Redis缓存
+	// Asynchronously update Redis cache
 	go am.updateRedisCache(apiKey, auth)
 
 	return auth, nil
 }
 
-// updateRedisCache 异步更新Redis缓存
+// updateRedisCache Asynchronously update Redis cache
 func (am *AuthManager) updateRedisCache(apiKey string, auth *UserAuth) {
 	am.mu.RLock()
 	client := am.redisClient
@@ -500,7 +503,7 @@ func (am *AuthManager) updateRedisCache(apiKey string, auth *UserAuth) {
 	}
 }
 
-// validateAPIKeyLocal 使用本地配置验证API密钥
+// validateAPIKeyLocal Validate API key using local configuration
 func (am *AuthManager) validateAPIKeyLocal(apiKey string) (*UserAuth, error) {
 	am.mu.RLock()
 	defer am.mu.RUnlock()
@@ -514,7 +517,7 @@ func (am *AuthManager) validateAPIKeyLocal(apiKey string) (*UserAuth, error) {
 	return nil, fmt.Errorf("invalid API key")
 }
 
-// HasPermission 检查用户是否有指定权限
+// HasPermission Check if the user has the specified permission
 func (am *AuthManager) HasPermission(auth *UserAuth, perm Permission) bool {
 	if auth == nil {
 		return false
@@ -528,14 +531,14 @@ func (am *AuthManager) HasPermission(auth *UserAuth, perm Permission) bool {
 	return false
 }
 
-// Close 关闭认证管理器
+// Close Close authentication manager
 func (am *AuthManager) Close() error {
 	am.logger.Log("INFO", "Shutting down auth manager")
 
-	// 先取消上下文，通知所有 goroutine 停止
+	// Cancel context first, notify all goroutines to stop
 	am.cancel()
 
-	// 等待一小段时间，让 goroutine 有机会完成
+	// Wait for a short time to allow goroutines to complete
 	time.Sleep(100 * time.Millisecond)
 
 	am.mu.Lock()
@@ -548,7 +551,7 @@ func (am *AuthManager) Close() error {
 		}
 	}
 
-	// 关闭日志记录器
+	// Close logger
 	am.logger.Close()
 
 	return nil
