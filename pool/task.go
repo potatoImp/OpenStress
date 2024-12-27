@@ -318,7 +318,7 @@ func LoadTasks(pool *Pool) {
 			priority := int32(1)        // 可以根据需要设置优先级
 			maxRetries := int32(3)      // 设置最大重试次数
 			timeout := time.Second * 10 // 设置任务超时时间
-			pool.Submit(fn, int(priority), int(maxRetries), taskID, timeout, false)
+			pool.Submit(fn, int(priority), int(maxRetries), taskID, timeout)
 			fmt.Printf("Loaded task: %s\n", taskID)
 		}
 	}
@@ -356,7 +356,7 @@ func LoadTasks2(pool *Pool) {
 						taskID := fn.Name.Name
 						fnValue := reflect.ValueOf(tasks.Task{}).MethodByName(taskID)
 						if fnValue.IsValid() && fnValue.Type().NumIn() == 0 {
-							pool.Submit(fnValue.Interface().(func()), 1, 3, taskID, time.Second*10, false)
+							pool.Submit(fnValue.Interface().(func()), 1, 3, taskID, time.Second*10)
 							fmt.Printf("Loaded task: %s\n", taskID)
 						}
 					}

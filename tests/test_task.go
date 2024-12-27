@@ -10,7 +10,7 @@ import (
 // TestTaskPool 测试任务池的功能
 func TestTaskPool1() {
 	maxWorkers := 1000
-	taskPool := pool.NewPool(maxWorkers)
+	taskPool := pool.NewPool(maxWorkers, true)
 
 	// 定义高优先级任务
 	highPriorityTask := func() {
@@ -40,19 +40,19 @@ func TestTaskPool1() {
 	// 提交高优先级任务
 	for i := 1; i <= 10; i++ {
 		taskID := fmt.Sprintf("High-Priority-Task-%d", i)
-		taskPool.Submit(highPriorityTask, 3, 2, taskID, 5*time.Second, true) // 高优先级
+		taskPool.Submit(highPriorityTask, 3, 2, taskID, 5*time.Second) // 高优先级
 	}
 
 	// 提交中优先级任务
 	for i := 1; i <= 5; i++ {
 		taskID := fmt.Sprintf("Medium-Priority-Task-%d", i)
-		taskPool.Submit(mediumPriorityTask, 2, 2, taskID, 5*time.Second, false) // 中优先级
+		taskPool.Submit(mediumPriorityTask, 2, 2, taskID, 5*time.Second) // 中优先级
 	}
 
 	// 提交低优先级任务
 	for i := 1; i <= 5; i++ {
 		taskID := fmt.Sprintf("Low-Priority-Task-%d", i)
-		taskPool.Submit(lowPriorityTask, 1, 2, taskID, 5*time.Second, false) // 低优先级
+		taskPool.Submit(lowPriorityTask, 1, 2, taskID, 5*time.Second) // 低优先级
 	}
 
 	// 启动任务池
