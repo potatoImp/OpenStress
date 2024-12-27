@@ -1,15 +1,3 @@
-// log.go
-// 日志模块
-// 本文件负责管理系统日志的记录、格式化和输出。
-// 主要功能包括：
-// - 创建日志目录
-// - 初始化日志记录器
-// - 提供日志记录接口
-// - 支持异步日志记录
-// - 日志切割与压缩
-// - 日志过期清理
-//
-
 package pool
 
 import (
@@ -31,6 +19,8 @@ type StressLogger struct {
 	wg      sync.WaitGroup
 	module  string
 	file    *lumberjack.Logger
+	closed  bool
+	mu      sync.Mutex // Protects the closed flag and channels
 }
 
 // LogEntry 表示一条日志记录
@@ -52,6 +42,7 @@ func GetLogger() (*StressLogger, error) {
 
 var once sync.Once
 
+// InitializeLogger 创建并初始化日志记录器
 func InitializeLogger(logDir, logFile, moduleName string) (*StressLogger, error) {
 	var err error
 	once.Do(func() {
@@ -79,9 +70,8 @@ func InitializeLogger(logDir, logFile, moduleName string) (*StressLogger, error)
 
 		core := zapcore.NewCore(
 			zapcore.NewJSONEncoder(encoderConfig),
-			// 写入到文件且输出到控制台
-			// zapcore.NewMultiWriteSyncer(zapcore.AddSync(os.Stdout), zapcore.AddSync(fileWriter)),
-			zapcore.AddSync(fileWriter), // 只使用文件写入器
+			// Write only to file
+			zapcore.AddSync(fileWriter),
 			zap.InfoLevel,
 		)
 
@@ -92,6 +82,7 @@ func InitializeLogger(logDir, logFile, moduleName string) (*StressLogger, error)
 			logChan: make(chan *LogEntry, 1000),
 			module:  moduleName,
 			file:    fileWriter,
+			closed:  false,
 		}
 
 		// Start the logger's asynchronous processing
@@ -110,7 +101,15 @@ func (l *StressLogger) Log(level string, message string) {
 		message: message,
 	}
 
-	// Push the log message into the channel for asynchronous batch processing
+	// Locking here to make sure the channel is not closed while logging
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	if l.closed {
+		return // If the logger is closed, do not log
+	}
+
+	// Push the log message into the channel for asynchronous processing
 	l.logChan <- logMessage
 }
 
@@ -162,10 +161,8 @@ func (l *StressLogger) flushLogs(logs []LogEntry) {
 		// Record logs based on their level
 		switch logMsg.level {
 		case "INFO":
-			// Only record essential info
 			l.logger.Info(logMsg.message, zap.Any("details", logEntry))
 		case "ERROR", "DEBUG":
-			// ERROR and DEBUG levels include file and line information
 			logEntry["file"] = file
 			logEntry["line"] = line
 			l.logger.Error(logMsg.message, zap.Any("details", logEntry))
@@ -177,6 +174,15 @@ func (l *StressLogger) flushLogs(logs []LogEntry) {
 
 // Close stops the logger and ensures all logs are written
 func (l *StressLogger) Close() {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	if l.closed {
+		return // If the logger is already closed, return
+	}
+
+	// Close the log channel
+	l.closed = true
 	close(l.logChan) // Close the log channel
 	l.wg.Wait()      // Wait for all logs to be processed
 	if l.file != nil {

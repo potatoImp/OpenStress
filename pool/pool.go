@@ -56,23 +56,19 @@ type Pool struct {
 	isPaused      int32         // 0 means running, 1 means paused
 	shutdownFlag  int32         // 0 means not shutdown, 1 means shutdown
 	workerExit    chan struct{} // Channel to signal workers to exit gracefully
-	isRepeating   bool          // Flag to control repeating task execution
-	initialTasks  []*Task       // Store initial tasks for repeating mode
 }
 
-// NewPool creates a new Pool with the specified maximum number of workers and mode.
-func NewPool(maxWorkers int, isRepeating bool) *Pool {
-	stressLogger.Log("INFO", fmt.Sprintf("Creating a new pool with %d workers, repeating mode: %v", maxWorkers, isRepeating))
+// NewPool creates a new Pool with the specified maximum number of workers.
+func NewPool(maxWorkers int) *Pool {
+	stressLogger.Log("INFO", fmt.Sprintf("Creating a new pool with %d workers", maxWorkers))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	pool := &Pool{
-		maxWorkers:   int32(maxWorkers),
-		tasks:        make(TaskQueue, 0),
-		ctx:          ctx,
-		cancel:       cancel,
-		workerExit:   make(chan struct{}),
-		isRepeating:  isRepeating, // Set repeating mode
-		initialTasks: make([]*Task, 0),
+		maxWorkers: int32(maxWorkers),
+		tasks:      make(TaskQueue, 0),
+		ctx:        ctx,
+		cancel:     cancel,
+		workerExit: make(chan struct{}),
 	}
 	heap.Init(&pool.tasks)
 	pool.Start()
@@ -91,12 +87,6 @@ func (p *Pool) Start() {
 	}
 
 	stressLogger.Log("INFO", fmt.Sprintf("%d worker goroutines started", p.maxWorkers))
-
-	// If repeating mode is enabled, directly start repeating task execution
-	if p.isRepeating {
-		stressLogger.Log("INFO", "Repeating mode enabled, starting task execution loop")
-		go p.startRepeatingTasks()
-	}
 }
 
 // worker listens for tasks and executes them.
@@ -140,25 +130,6 @@ func (p *Pool) worker() {
 	}
 }
 
-// startRepeatingTasks starts a loop to continuously execute tasks in repeating mode.
-func (p *Pool) startRepeatingTasks() {
-	for {
-		if len(p.initialTasks) == 0 {
-			stressLogger.Log("INFO", "No initial tasks to repeat, waiting for tasks to be added")
-			time.Sleep(100 * time.Millisecond)
-			continue
-		}
-
-		for _, task := range p.initialTasks {
-			stressLogger.Log("INFO", fmt.Sprintf("Repeating execution of task %s", task.ID))
-			p.executeTask(task)
-		}
-
-		// Sleep between repetitions
-		time.Sleep(100 * time.Millisecond)
-	}
-}
-
 // executeTask executes a task and manages its timeout.
 func (p *Pool) executeTask(task *Task) {
 	stressLogger.Log("INFO", fmt.Sprintf("Executing task %s with timeout %v", task.ID, task.timeout))
@@ -196,14 +167,8 @@ func (p *Pool) Submit(fn func(), priority int, retries int, taskID string, timeo
 		maxRetries: 3, // Maximum retries
 		timeout:    timeout,
 	}
-
 	heap.Push(&p.tasks, task)
 	atomic.AddInt32(&p.activeWorkers, 1)
-
-	// If repeating mode, store the task for repeating execution
-	if p.isRepeating {
-		p.initialTasks = append(p.initialTasks, task)
-	}
 
 	stressLogger.Log("INFO", fmt.Sprintf("Task %s submitted successfully", taskID))
 }
@@ -255,8 +220,11 @@ func (p *Pool) GetTaskStatus(taskID string) (*Task, error) {
 
 	for _, task := range p.tasks {
 		if task.ID == taskID {
+			stressLogger.Log("INFO", fmt.Sprintf("Task %s found", taskID))
 			return task, nil
 		}
 	}
-	return nil, fmt.Errorf("task %s not found", taskID)
+
+	stressLogger.Log("ERROR", fmt.Sprintf("Task %s not found", taskID))
+	return nil, fmt.Errorf("task not found")
 }
