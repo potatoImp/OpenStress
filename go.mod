@@ -17,6 +17,7 @@ require (
 	github.com/myzhan/gomq v0.0.0-20220926014711-4eea0d4a1e75 // indirect
 	github.com/myzhan/gomq/zmtp v0.0.0-20220926014711-4eea0d4a1e75 // indirect
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
+	github.com/panjf2000/ants/v2 v2.10.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_golang v1.14.0 // indirect
 	github.com/prometheus/client_model v0.3.0 // indirect
@@ -30,6 +31,7 @@ require (
 	github.com/zeromq/goczmq v0.0.0-20190906225145-a7546843a315 // indirect
 	go.uber.org/multierr v1.10.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
+	golang.org/x/sync v0.10.0 // indirect
 	golang.org/x/sys v0.11.0 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
