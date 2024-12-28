@@ -14,13 +14,14 @@ import (
 
 // StressLogger 表示一个日志记录器
 type StressLogger struct {
-	logger  *zap.Logger
-	logChan chan *LogEntry
-	wg      sync.WaitGroup
-	module  string
-	file    *lumberjack.Logger
-	closed  bool
-	mu      sync.Mutex // Protects the closed flag and channels
+	logger       *zap.Logger
+	logChan      chan *LogEntry
+	wg           sync.WaitGroup
+	module       string
+	file         *lumberjack.Logger
+	closed       bool
+	mu           sync.Mutex // Protects the closed flag and channels
+	currentLevel zapcore.Level
 }
 
 // LogEntry 表示一条日志记录
@@ -31,6 +32,9 @@ type LogEntry struct {
 
 // Declare a global variable to hold the logger instance
 var globalLogger *StressLogger
+
+// DefaultLogLevel 默认日志级别，初始化为 INFO
+var DefaultLogLevel zapcore.Level = zap.InfoLevel
 
 // This function is now only responsible for starting the logger if not already started
 func GetLogger() (*StressLogger, error) {
@@ -72,17 +76,18 @@ func InitializeLogger(logDir, logFile, moduleName string) (*StressLogger, error)
 			zapcore.NewJSONEncoder(encoderConfig),
 			// Write only to file
 			zapcore.AddSync(fileWriter),
-			zap.InfoLevel,
+			DefaultLogLevel, // Use the global default level
 		)
 
 		logger := zap.New(core)
 
 		stressLogger = &StressLogger{
-			logger:  logger,
-			logChan: make(chan *LogEntry, 1000),
-			module:  moduleName,
-			file:    fileWriter,
-			closed:  false,
+			logger:       logger,
+			logChan:      make(chan *LogEntry, 1000),
+			module:       moduleName,
+			file:         fileWriter,
+			closed:       false,
+			currentLevel: DefaultLogLevel,
 		}
 
 		// Start the logger's asynchronous processing
@@ -109,8 +114,27 @@ func (l *StressLogger) Log(level string, message string) {
 		return // If the logger is closed, do not log
 	}
 
-	// Push the log message into the channel for asynchronous processing
-	l.logChan <- logMessage
+	// Only log the message if its level is >= current log level
+	if levelPriority(level) >= levelPriority(l.currentLevel.String()) {
+		// Push the log message into the channel for asynchronous processing
+		l.logChan <- logMessage
+	}
+}
+
+// levelPriority returns the integer priority for a log level.
+func levelPriority(level string) int {
+	switch level {
+	case "DEBUG":
+		return 1
+	case "INFO":
+		return 2
+	case "WARN":
+		return 3
+	case "ERROR":
+		return 4
+	default:
+		return 0
+	}
 }
 
 // start begins the process of handling log messages asynchronously
@@ -188,4 +212,49 @@ func (l *StressLogger) Close() {
 	if l.file != nil {
 		l.file.Close()
 	}
+}
+
+// SetLogLevel 动态设置日志级别
+func SetLogLevel(level string) error {
+	var zapLevel zapcore.Level
+	switch level {
+	case "DEBUG":
+		zapLevel = zap.DebugLevel
+	case "INFO":
+		zapLevel = zap.InfoLevel
+	case "WARN":
+		zapLevel = zap.WarnLevel
+	case "ERROR":
+		zapLevel = zap.ErrorLevel
+	default:
+		return fmt.Errorf("invalid log level: %s", level)
+	}
+
+	// Update the global logger level
+	DefaultLogLevel = zapLevel
+
+	// Update the logger core
+	encoderConfig := zap.NewProductionEncoderConfig()
+	encoderConfig.EncodeTime = zapcore.TimeEncoderOfLayout("2006-01-02 15:04:05.000")
+	encoderConfig.EncodeCaller = zapcore.FullCallerEncoder
+	encoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
+
+	fileWriter := &lumberjack.Logger{
+		Filename:   "logs/app.log",
+		MaxSize:    10,
+		MaxBackups: 3,
+		MaxAge:     28,
+		Compress:   true,
+	}
+
+	core := zapcore.NewCore(
+		zapcore.NewJSONEncoder(encoderConfig),
+		zapcore.AddSync(fileWriter),
+		DefaultLogLevel, // Use the updated global level
+	)
+
+	// Recreate the logger with the new level
+	globalLogger.logger = zap.New(core)
+
+	return nil
 }
