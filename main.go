@@ -2,8 +2,11 @@ package main
 
 import (
 	"OpenStress/pool"
+	// "time"
+
 	"OpenStress/tests"
 	"fmt"
+	// "OpenStress/result"
 )
 
 var logger *pool.StressLogger
@@ -72,7 +75,57 @@ func main() {
 	// handleError(err)
 
 	// pool 模块测试方法
-	tests.TestTaskPool1()
+	tests.TestTask_AD()
+
+	// // result 模块测试方法
+	// collectorConfig := result.CollectorConfig{
+	// 	BatchSize:       10,
+	// 	OutputFormat:    "jtl",
+	// 	JTLFilePath:     "path/to/jtl/file.jtl",
+	// 	Logger:          logger,
+	// 	NumGoroutines:   2,
+	// 	CollectInterval: 5,
+	// 	TaskID:          "testTask",
+	// }
+	// collector, err := result.NewCollector(collectorConfig)
+	// if err != nil {
+	// 	logger.Log("ERROR", "Failed to create collector: "+err.Error())
+	// }
+	// collector.InitializeCollector()
+
+	// // 模拟收集数据
+	// collector.CollectDataWithParams("test1", time.Now(), time.Now(), 200, "GET", "http://example.com", 1024, 2048, 1)
+
+	// collector.SaveFailureResult(result.ResultData{
+	// 	ID:           "test1",
+	// 	Type:         result.Failure,
+	// 	ResponseTime: 120 * time.Millisecond,
+	// 	StartTime:    time.Now(),
+	// 	EndTime:      time.Now().Add(120 * time.Millisecond),
+	// 	StatusCode:   200,
+	// 	Method:       "GET",
+	// 	URL:          "http://example.com",
+	// 	DataSent:     1024,
+	// 	DataReceived: 2048,
+	// 	ThreadID:     1,
+	// })
+
+	// collector.SaveSuccessResult(result.ResultData{
+	// 	ID:           "test1",
+	// 	Type:         result.Success,
+	// 	ResponseTime: 120 * time.Millisecond,
+	// 	StartTime:    time.Now(),
+	// 	EndTime:      time.Now().Add(120 * time.Millisecond),
+	// 	StatusCode:   200,
+	// 	Method:       "GET",
+	// 	URL:          "http://example.com",
+	// 	DataSent:     1024,
+	// 	DataReceived: 2048,
+	// 	ThreadID:     1,
+	// })
+
+	// collector.Close()
+
 }
 
 // handleError 处理错误并记录日志
