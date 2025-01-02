@@ -3,53 +3,53 @@ package api
 // "encoding/json"
 // "net/http"
 
-// The Task interface defines the basic behavior of a task
+// Task 接口定义了任务的基本行为
 type Task interface {
-	Execute() error        // Method to execute the task.
-	GetName() string       // Method to get the task name.
-	GetExecutionTime() int // Get the task execution time.
-	GetWaitTime() int      // Get the wait time after the task execution.
-	GetTimeout() int       // Get the timeout wait time.
-	GetInitTimeout() int   // Get the initialization timeout wait time.
+	Execute() error        // 执行任务的方法
+	GetName() string       // 获取任务名称的方法
+	GetExecutionTime() int // 获取任务执行时间
+	GetWaitTime() int      // 获取任务执行完后的等待时间
+	GetTimeout() int       // 获取超时等待时间
+	GetInitTimeout() int   // 获取初始化超时等待时间
 }
 
-// HttpClientTask structure for HTTP client tasks
+// HttpClientTask HTTP 客户端任务结构
 type HttpClientTask struct {
 	Name          string
 	URL           string
-	ExecutionTime int // Task execution time (milliseconds).
-	WaitTime      int // Wait time after execution (milliseconds).
-	Timeout       int // Timeout wait time (milliseconds).
-	InitTimeout   int // Initialization timeout wait time (milliseconds).
+	ExecutionTime int // 任务执行时间（毫秒）
+	WaitTime      int // 执行完后的等待时间（毫秒）
+	Timeout       int // 超时等待时间（毫秒）
+	InitTimeout   int // 初始化超时等待时间（毫秒）
 }
 
-// Execute Implement HTTP request logic
+// Execute 执行 HTTP 请求的逻辑
 func (h *HttpClientTask) Execute() error {
-	// Implement HTTP request logic
+	// 实现 HTTP 请求逻辑
 	return nil
 }
 
-// GetName Get the task name.
+// GetName 获取任务名称
 func (h *HttpClientTask) GetName() string {
 	return h.Name
 }
 
-// GetExecutionTime Get the task execution time.
+// GetExecutionTime 获取任务执行时间
 func (h *HttpClientTask) GetExecutionTime() int {
 	return h.ExecutionTime
 }
 
-// GetWaitTime Get the wait time after the task execution.
+// GetWaitTime 获取任务执行完后的等待时间
 func (h *HttpClientTask) GetWaitTime() int {
 	return h.WaitTime
 }
 
-// GetTimeout Get the timeout wait time.
+// GetTimeout 获取超时等待时间
 func (h *HttpClientTask) GetTimeout() int {
 	return h.Timeout
 }
 
-// GetInitTimeout Get the initialization timeout wait time.
+// GetInitTimeout 获取初始化超时等待时间
 func (h *HttpClientTask) GetInitTimeout() int {
 	return h.InitTimeout
 }
