@@ -309,14 +309,19 @@ func (t *TaskDetail) checkDependencies() error {
 // LoadTasks 自动加载任务到任务池
 func LoadTasks(pool *Pool) {
 	fmt.Println("Loading tasks...")
+
 	taskType := reflect.TypeOf(tasks.Task{})
 	for i := 0; i < taskType.NumMethod(); i++ {
 		method := taskType.Method(i)
+		// 确保该方法没有输入参数且以 "Task_" 开头
 		if method.Type.NumIn() == 0 && strings.HasPrefix(method.Name, "Task_") {
 			taskID := method.Name
-			fn := method.Func.Interface().(func())
+			// 将函数签名改为支持ThreadID参数
+			fn := method.Func.Interface().(func(threadID int32))
 			priority := int32(1)        // 可以根据需要设置优先级
 			timeout := time.Second * 10 // 设置任务超时时间
+
+			// 通过 Submit 方法将任务提交到池中
 			pool.Submit(fn, int(priority), taskID, timeout)
 			fmt.Printf("Loaded task: %s\n", taskID)
 		}
@@ -341,6 +346,7 @@ func LoadTasks2(pool *Pool) {
 		}
 
 		if strings.HasSuffix(info.Name(), ".go") {
+			// 解析Go文件，寻找任务函数
 			fset := token.NewFileSet()
 			node, err := parser.ParseFile(fset, path, nil, parser.AllErrors)
 			if err != nil {
@@ -349,13 +355,21 @@ func LoadTasks2(pool *Pool) {
 
 			for _, decl := range node.Decls {
 				if fn, ok := decl.(*ast.FuncDecl); ok {
+					// 找到以 "Task_" 开头的函数
 					if strings.HasPrefix(fn.Name.Name, "Task_") {
 						fmt.Printf("Found function: %s\n", fn.Name.Name)
 
 						taskID := fn.Name.Name
+						// 获取任务函数的反射值并检查参数
 						fnValue := reflect.ValueOf(tasks.Task{}).MethodByName(taskID)
 						if fnValue.IsValid() && fnValue.Type().NumIn() == 0 {
-							pool.Submit(fnValue.Interface().(func()), 1, taskID, time.Second*10)
+							// 修改函数以接受线程ID作为参数
+							taskFn := func(threadID int32) {
+								fnValue.Call([]reflect.Value{reflect.ValueOf(threadID)})
+							}
+
+							// 将任务提交到任务池
+							pool.Submit(taskFn, 1, taskID, time.Second*10)
 							fmt.Printf("Loaded task: %s\n", taskID)
 						}
 					}

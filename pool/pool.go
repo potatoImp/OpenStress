@@ -23,11 +23,12 @@ type Task struct {
 
 // Pool represents a goroutine pool with dynamic concurrency and priority scheduling.
 type Pool struct {
-	maxWorkers    int32      // max workers
-	activeWorkers int32      // active workers
-	taskPool      *ants.Pool // Task pool from ants library
-	isPaused      int32      // 0 means running, 1 means paused
-	shutdownFlag  int32      // 0 means not shutdown, 1 means shutdown
+	maxWorkers      int32      // max workers
+	activeWorkers   int32      // active workers
+	taskPool        *ants.Pool // Task pool from ants library
+	isPaused        int32      // 0 means running, 1 means paused
+	shutdownFlag    int32      // 0 means not shutdown, 1 means shutdown
+	threadIDCounter int32      // Atomic counter for assigning ThreadID
 }
 
 // NewPool creates a new Pool with the specified maximum number of workers.
@@ -41,9 +42,11 @@ func NewPool(maxWorkers int) *Pool {
 		return nil
 	}
 
+	// Initialize the pool with the new threadIDCounter
 	pool := &Pool{
-		maxWorkers: int32(maxWorkers),
-		taskPool:   taskPool,
+		maxWorkers:      int32(maxWorkers),
+		taskPool:        taskPool,
+		threadIDCounter: 0,
 	}
 
 	stressLogger.Log("INFO", "Pool created successfully")
@@ -97,12 +100,15 @@ func (p *Pool) worker() {
 }
 
 // Submit adds a new task to the pool.
-func (p *Pool) Submit(fn func(), priority int, taskID string, timeout time.Duration) {
+func (p *Pool) Submit(fn func(threadID int32), priority int, taskID string, timeout time.Duration) {
 	stressLogger.Log("INFO", fmt.Sprintf("Submitting task %s with priority %d", taskID, priority))
+
+	// Get a unique ThreadID for the current task, limiting it to maxWorkers
+	threadID := atomic.AddInt32(&p.threadIDCounter, 1) % p.maxWorkers
 
 	task := &Task{
 		ID:         taskID,
-		fn:         fn,
+		fn:         func() { fn(threadID) }, // Pass the threadID to the task function
 		priority:   priority,
 		retries:    0, // Default retries
 		maxRetries: 3, // Maximum retries
