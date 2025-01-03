@@ -44,3 +44,15 @@ OpenStress is licensed under the MIT License. See the LICENSE file for more info
 For any inquiries or support, please reach out via the issues section of the repository or contact the maintainers directly.
 
 
+## Acknowledgments
+
+We would like to express our gratitude to the authors and contributors of the following libraries that made this project possible:
+
+- **go-echarts**: A powerful charting library for Go.
+- **go-redis**: A Redis client for Go.
+- **gokrb5**: A Go library for Kerberos authentication.
+- **ants**: A high-performance goroutine pool for Go.
+- **zap**: A fast, structured, and leveled logging library for Go.
+- **lumberjack**: A log rolling package for Go.
+- **yaml**: A YAML support library for Go.
+- **xxhash**: A fast non-cryptographic hash algorithm.
