@@ -193,6 +193,8 @@ func (c *Collector) SaveSuccessResult(data ResultData) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	data.ResponseTime = data.EndTime.Sub(data.StartTime)
+
 	c.results = append(c.results, data)
 
 	if c.jtlFilePath != "" {
@@ -207,6 +209,8 @@ func (c *Collector) SaveSuccessResult(data ResultData) error {
 func (c *Collector) SaveFailureResult(data ResultData) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
+	data.ResponseTime = data.EndTime.Sub(data.StartTime)
 
 	c.results = append(c.results, data)
 
