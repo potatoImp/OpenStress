@@ -4,7 +4,6 @@ import (
 	"OpenStress/pool"
 	"fmt"
 
-	// "net/http"
 	"time"
 
 	"OpenStress/result"
@@ -142,7 +141,7 @@ func TestTaskPool1() {
 	fmt.Println(stats)
 
 	// 保存HTML报告到文件
-	reportPath, err := collector.SaveReportToFile(stats)
+	reportPath, err := collector.SaveReportToFile(stats, "01X批次OpenStress产品基准测试报告")
 	if err != nil {
 		fmt.Println("Error saving report:", err)
 		return

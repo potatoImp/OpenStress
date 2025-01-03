@@ -53,7 +53,7 @@ func TestTask_AD() {
     `
 		conf, err := config.NewConfigFromString(krb5conf)
 		if err != nil {
-			fmt.Println("Error loading krb5 configuration: %v", err)
+			fmt.Println("Error loading krb5 configuration: ", err)
 
 		}
 		startTime := time.Now()
@@ -63,7 +63,7 @@ func TestTask_AD() {
 		// 登录
 		err = Kerberos_client.Login()
 		if err != nil {
-			fmt.Printf("Error logging in with user %s: %v", err)
+			fmt.Printf("Error logging in with user: %v", err)
 		} else {
 			//succ_cnt++
 		}
@@ -136,7 +136,7 @@ func TestTask_AD() {
 	fmt.Println(stats)
 
 	// 保存HTML报告到文件
-	reportPath, err := collector.SaveReportToFile(stats)
+	reportPath, err := collector.SaveReportToFile(stats, "SGP-XCAD产品认证性能测试报告")
 	if err != nil {
 		fmt.Println("Error saving report:", err)
 		return
