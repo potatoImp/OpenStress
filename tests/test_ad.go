@@ -16,7 +16,7 @@ import (
 // TestTaskPool 测试任务池的功能
 func TestTask_AD() {
 	maxWorkers := 1000
-	taskPool := pool.NewPool(maxWorkers)
+	taskPool, _ := pool.NewPool(maxWorkers)
 
 	stressLogger, _ := pool.GetLogger()
 	// result 模块测试方法
@@ -36,20 +36,20 @@ func TestTask_AD() {
 	collector.InitializeCollector()
 
 	// 定义高优先级任务
-	highPriorityTask := func(threadID int32) {
+	highPriorityTask := func(threadID int32) error {
 
 		krb5conf := `
 [libdefaults]
     default_realm = TEST.COM
     udp_preference_limit = 1
 [realms]
-    TEST.COM = {
-        kdc = 10.10.27.145
-        admin_server = 10.10.27.145
+    WTEST.COM = {
+        kdc = 10.10.27.65
+        admin_server = 10.10.27.65
     }
 [domain_realm]
-    .example.com = EXAMPLE.COM
-    example.com = EXAMPLE.COM
+    .example.com = WTEST.COM
+    example.com = WTEST.COM
     `
 		conf, err := config.NewConfigFromString(krb5conf)
 		if err != nil {
@@ -58,7 +58,7 @@ func TestTask_AD() {
 		}
 		startTime := time.Now()
 		// 创建 Kerberos 客户端
-		Kerberos_client := client.NewClientWithPassword("Administrator", "TEST.COM", "Emm@2024", conf)
+		Kerberos_client := client.NewClientWithPassword("Administrator", "WTEST.COM", "Emm@2022", conf)
 
 		// 登录
 		err = Kerberos_client.Login()
@@ -85,7 +85,7 @@ func TestTask_AD() {
 				ThreadID:     int(threadID),
 			})
 			fmt.Printf("请求失败: %v\n", err)
-			return
+			return nil
 		}
 		// defer resp.Body.Close()
 		// fmt.Printf("请求成功，状态码: %d\n", resp.StatusCode)
@@ -102,19 +102,17 @@ func TestTask_AD() {
 			DataReceived: 2048,
 			ThreadID:     int(threadID),
 		})
+		return nil
 	}
 
 	// 提交高优先级任务
-	for i := 1; i <= 100000; i++ {
-		taskID := fmt.Sprintf("请求resources-8080-%d", i)
-		taskPool.Submit(highPriorityTask, 3, taskID, 5*time.Second) // 高优先级
+	for i := 1; i <= 1; i++ {
+		taskPool.AddTask(highPriorityTask, 3) // 高优先级
 	}
 
+	time.Sleep(1 * time.Second)
 	// 启动任务池
-	taskPool.Start()
-
-	// 关闭任务池
-	taskPool.Shutdown()
+	taskPool.Start(60 * time.Second)
 
 	// 加载结果数据
 	results, err := collector.LoadResultsFromFile()

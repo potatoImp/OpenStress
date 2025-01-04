@@ -2,7 +2,8 @@ package pool
 
 import (
 	"fmt"
-	"sync/atomic"
+	"sort"
+	"sync"
 	"time"
 
 	"github.com/panjf2000/ants/v2"
@@ -11,151 +12,147 @@ import (
 // 引入日志模块
 var stressLogger *StressLogger
 
-// Task represents a task with priority and retry settings.
+// Task 任务结构体，定义每个任务的基本信息
 type Task struct {
 	ID         string
-	fn         func() // Task execution function (no error returned)
-	priority   int
-	retries    int
-	maxRetries int           // Maximum retry attempts
-	timeout    time.Duration // Task execution timeout
+	fn         func(threadID int32) error // 任务执行的函数，接收一个 threadID 参数并返回错误
+	priority   int                        // 任务优先级（数字越大优先级越高）
+	retries    int                        // 重试次数
+	maxRetries int                        // 最大重试次数
+	timeout    time.Duration              // 任务超时时间
 }
 
-// Pool represents a goroutine pool with dynamic concurrency and priority scheduling.
+// Pool 任务池结构体
 type Pool struct {
-	maxWorkers      int32      // max workers
-	activeWorkers   int32      // active workers
-	taskPool        *ants.Pool // Task pool from ants library
-	isPaused        int32      // 0 means running, 1 means paused
-	shutdownFlag    int32      // 0 means not shutdown, 1 means shutdown
-	threadIDCounter int32      // Atomic counter for assigning ThreadID
+	maxWorkers    int
+	taskList      []Task        // 任务列表，直接存储任务
+	taskPool      *ants.Pool    // ants 协程池
+	stopChannel   chan struct{} // 停止信号通道
+	wg            sync.WaitGroup
+	taskListMutex sync.RWMutex // 读写锁，保护任务列表的并发访问
 }
 
-// NewPool creates a new Pool with the specified maximum number of workers.
-func NewPool(maxWorkers int) *Pool {
-	stressLogger.Log("INFO", fmt.Sprintf("Creating a new pool with %d workers", maxWorkers))
-
-	// Initialize ants pool with max worker limit
-	taskPool, err := ants.NewPool(maxWorkers)
+// NewPool 创建并初始化任务池
+func NewPool(maxWorkers int) (*Pool, error) {
+	// 使用 ants.NewPool 来创建池
+	pool, err := ants.NewPool(maxWorkers)
 	if err != nil {
-		stressLogger.Log("ERROR", fmt.Sprintf("Error creating ants pool: %v", err))
-		return nil
+		return nil, err
 	}
-
-	// Initialize the pool with the new threadIDCounter
-	pool := &Pool{
-		maxWorkers:      int32(maxWorkers),
-		taskPool:        taskPool,
-		threadIDCounter: 0,
-	}
-
-	stressLogger.Log("INFO", "Pool created successfully")
-	return pool
+	return &Pool{
+		maxWorkers:  maxWorkers,
+		taskPool:    pool,
+		stopChannel: make(chan struct{}),
+	}, nil
 }
 
-// Start initializes the worker goroutines.
-func (p *Pool) Start() {
-	stressLogger.Log("INFO", fmt.Sprintf("Starting %d worker goroutines...", p.maxWorkers))
-
-	// Initialize workers
-	for i := 0; i < int(p.maxWorkers); i++ {
-		go p.worker()
+// AddTask 添加单个任务到任务列表并排序
+func (p *Pool) AddTask(fn func(threadID int32) error, priority int) {
+	// 创建一个新的任务
+	task := Task{
+		ID:         fmt.Sprintf("task-%d", len(p.taskList)+1), // 自动生成任务ID
+		fn:         fn,
+		priority:   priority, // 设置优先级
+		retries:    0,        // 默认重试为0
+		maxRetries: 3,        // 默认最大重试次数为3
+		timeout:    0,        // 默认不设置超时时间
 	}
 
-	stressLogger.Log("INFO", fmt.Sprintf("%d worker goroutines started", p.maxWorkers))
+	// 将任务添加到任务列表
+	p.taskListMutex.Lock() // 加写锁
+	p.taskList = append(p.taskList, task)
+	// 按照优先级从大到小排序任务列表（优先级数字越大越高）
+	sort.SliceStable(p.taskList, func(i, j int) bool {
+		return p.taskList[i].priority > p.taskList[j].priority
+	})
+	p.taskListMutex.Unlock() // 解锁
+
+	stressLogger.Log("INFO", fmt.Sprintf("Task %s added to the task list.", task.ID))
 }
 
-// worker listens for tasks and executes them.
-func (p *Pool) worker() {
+// executeWithRetry 执行任务的重试逻辑
+func (task *Task) executeWithRetry(threadID int32) error {
+	var retries int
 	for {
-		if atomic.LoadInt32(&p.shutdownFlag) == 1 {
-			stressLogger.Log("INFO", "Pool shutdown detected, worker exiting")
-			return
+		err := task.fn(threadID) // 执行任务
+		if err == nil {
+			return nil // 任务成功，退出
 		}
 
-		// Check for pause status
-		if atomic.LoadInt32(&p.isPaused) == 1 {
-			stressLogger.Log("DEBUG", "Pool is paused, worker waiting")
-			time.Sleep(100 * time.Millisecond)
-			continue
+		// 达到最大重试次数时退出
+		if retries >= task.maxRetries {
+			stressLogger.Log("ERROR", fmt.Sprintf("Task %s failed after %d retries.", task.ID, retries))
+			return err
 		}
 
-		// Submit tasks to ants pool, worker executes tasks asynchronously
-		task := &Task{
-			ID: "Sample-Task",
-			fn: func() {
-				stressLogger.Log("INFO", "Executing task...")
-				// Simulate task processing
-				time.Sleep(1 * time.Second)
-				stressLogger.Log("INFO", "Task completed")
-			},
-		}
-
-		// Submit the task to the pool
-		err := p.taskPool.Submit(task.fn)
-		if err != nil {
-			stressLogger.Log("ERROR", fmt.Sprintf("Failed to submit task %s: %v", task.ID, err))
-		}
+		retries++
+		// 使用指数退避策略来延迟重试
+		time.Sleep(time.Duration(1<<retries) * time.Second) // 延迟 2^retries 秒
 	}
 }
 
-// Submit adds a new task to the pool.
-func (p *Pool) Submit(fn func(threadID int32), priority int, taskID string, timeout time.Duration) {
-	stressLogger.Log("INFO", fmt.Sprintf("Submitting task %s with priority %d", taskID, priority))
+// Start 启动任务池并循环执行任务
+func (p *Pool) Start(runDuration time.Duration) {
+	p.wg.Add(1)
+	go func() {
+		defer p.wg.Done()
 
-	// Get a unique ThreadID for the current task, limiting it to maxWorkers
-	threadID := atomic.AddInt32(&p.threadIDCounter, 1) % p.maxWorkers
+		timeout := time.After(runDuration)               // 超时通道
+		ticker := time.NewTicker(100 * time.Millisecond) // 公共定时器
+		defer ticker.Stop()
 
-	task := &Task{
-		ID:         taskID,
-		fn:         func() { fn(threadID) }, // Pass the threadID to the task function
-		priority:   priority,
-		retries:    0, // Default retries
-		maxRetries: 3, // Maximum retries
-		timeout:    timeout,
-	}
+		// 启动所有工作协程
+		for i := 0; i < p.maxWorkers; i++ {
+			err := p.taskPool.Submit(func() {
+				threadID := int32(i)
+				for {
+					select {
+					case <-ticker.C:
+						// 遍历任务列表并执行任务
+						p.taskListMutex.RLock() // 加读锁
+						// 遍历任务，已经按优先级排序，所以直接执行
+						for _, task := range p.taskList {
+							task.executeWithRetry(threadID) // 执行带重试的任务
+						}
+						p.taskListMutex.RUnlock() // 解锁
 
-	// Submit task to ants pool
-	err := p.taskPool.Submit(task.fn)
-	if err != nil {
-		stressLogger.Log("ERROR", fmt.Sprintf("Failed to submit task %s: %v", taskID, err))
-	}
-	stressLogger.Log("INFO", fmt.Sprintf("Task %s submitted successfully", taskID))
+					case <-p.stopChannel: // 收到停止信号，退出
+						stressLogger.Log("INFO", fmt.Sprintf("Worker %d received stop signal, stopping.", i))
+						return
+					}
+				}
+			})
+
+			if err != nil {
+				stressLogger.Log("ERROR", fmt.Sprintf("Failed to start worker %d: %v", i, err))
+			} else {
+				stressLogger.Log("INFO", fmt.Sprintf("Worker %d started successfully", i))
+			}
+		}
+
+		// 任务池控制循环
+		for {
+			select {
+			case <-timeout: // 超时，停止任务池
+				stressLogger.Log("INFO", "Task pool reached specified runtime, stopping.")
+				close(p.stopChannel) // 发送停止信号
+				return
+			case <-p.stopChannel: // 收到停止信号，停止任务池
+				stressLogger.Log("INFO", "Received stop signal, stopping task pool.")
+				return
+			case <-ticker.C: // 每 100 毫秒检查一次
+				// 可以在这里处理其他定时任务
+			}
+		}
+	}()
+
+	// 等待任务池中的所有工作协程完成
+	p.wg.Wait()
 }
 
-// Shutdown gracefully stops the pool and waits for all tasks to complete.
-func (p *Pool) Shutdown() {
-	stressLogger.Log("INFO", "Shutting down the pool")
-	atomic.StoreInt32(&p.shutdownFlag, 1)
-	p.taskPool.Release()
-	stressLogger.Log("INFO", "Pool shutdown completed")
-}
-
-// Pause pauses the pool, preventing any new tasks from starting.
-func (p *Pool) Pause() {
-	stressLogger.Log("INFO", "Pausing the pool")
-	atomic.StoreInt32(&p.isPaused, 1)
-	stressLogger.Log("INFO", "Pool paused")
-}
-
-// Resume resumes the pool, allowing tasks to start again.
-func (p *Pool) Resume() {
-	stressLogger.Log("INFO", "Resuming the pool")
-	atomic.StoreInt32(&p.isPaused, 0)
-	stressLogger.Log("INFO", "Pool resumed")
-}
-
-// AdjustWorkers dynamically adjusts the number of worker goroutines.
-func (p *Pool) AdjustWorkers(newWorkerCount int) {
-	stressLogger.Log("INFO", fmt.Sprintf("Adjusting workers to %d", newWorkerCount))
-	// You can resize the pool using ants' dynamic worker adjustment features if needed
-	stressLogger.Log("INFO", fmt.Sprintf("Worker count adjusted to %d", newWorkerCount))
-}
-
-// GetTaskStatus returns the status of a task by its ID.
-func (p *Pool) GetTaskStatus(taskID string) (*Task, error) {
-	stressLogger.Log("INFO", fmt.Sprintf("Fetching status for task %s", taskID))
-
-	// Return the status of the task
-	return nil, fmt.Errorf("task not found")
+// Stop 停止任务池
+func (p *Pool) Stop() {
+	// 主动发送停止信号
+	close(p.stopChannel)
+	p.wg.Wait()
 }

@@ -85,22 +85,22 @@ type SystemMetrics struct {
 
 // TaskStatusUpdate 任务状态更新信息
 type TaskStatusUpdate struct {
-	TaskID        string
-	OldStatus     TaskStatus
-	NewStatus     TaskStatus
+	TaskID string
+	// OldStatus     TaskStatus
+	// NewStatus     TaskStatus
 	ExecutionTime time.Duration
 }
 
 // Monitor 监控器结构体
 type Monitor struct {
-	logger          *StressLogger
-	taskStats       *statsData
-	thresholds      ResourceThresholds
-	metricsChan     chan SystemMetrics
+	logger           *StressLogger
+	taskStats        *statsData
+	thresholds       ResourceThresholds
+	metricsChan      chan SystemMetrics
 	statusUpdateChan chan TaskStatusUpdate
-	stopChan        chan struct{}
-	interval        time.Duration
-	wg              sync.WaitGroup
+	stopChan         chan struct{}
+	interval         time.Duration
+	wg               sync.WaitGroup
 }
 
 // NewMonitor 创建新的监控器实例
@@ -110,11 +110,11 @@ func NewMonitor(logger *StressLogger, interval time.Duration, thresholds Resourc
 		taskStats: &statsData{
 			stats: TaskStats{},
 		},
-		thresholds:      thresholds,
-		metricsChan:     make(chan SystemMetrics, 100),
+		thresholds:       thresholds,
+		metricsChan:      make(chan SystemMetrics, 100),
 		statusUpdateChan: make(chan TaskStatusUpdate, 1000),
-		stopChan:        make(chan struct{}),
-		interval:        interval,
+		stopChan:         make(chan struct{}),
+		interval:         interval,
 	}
 }
 
@@ -125,8 +125,6 @@ func (m *Monitor) Start() {
 	go m.collectMetrics()
 	// 启动监控报告生成
 	go m.generateReports()
-	// 启动任务状态处理
-	go m.processTaskUpdates()
 	m.logger.Log("INFO", "Monitor started")
 }
 
@@ -137,56 +135,25 @@ func (m *Monitor) Stop() {
 	m.logger.Log("INFO", "Monitor stopped")
 }
 
-// RecordTaskStatus 记录任务状态变更（异步）
-func (m *Monitor) RecordTaskStatus(taskID string, oldStatus, newStatus TaskStatus, executionTime time.Duration) {
-	// 创建状态更新对象
-	update := TaskStatusUpdate{
-		TaskID:        taskID,
-		OldStatus:     oldStatus,
-		NewStatus:     newStatus,
-		ExecutionTime: executionTime,
-	}
+// // RecordTaskStatus 记录任务状态变更（异步）
+// func (m *Monitor) RecordTaskStatus(taskID string, oldStatus, newStatus TaskStatus, executionTime time.Duration) {
+// 	// 创建状态更新对象
+// 	update := TaskStatusUpdate{
+// 		TaskID:        taskID,
+// 		OldStatus:     oldStatus,
+// 		NewStatus:     newStatus,
+// 		ExecutionTime: executionTime,
+// 	}
 
-	// 异步发送状态更新
-	select {
-	case m.statusUpdateChan <- update:
-		// 成功发送到通道
-	default:
-		// 通道已满，记录警告
-		m.logger.Log("WARNING", fmt.Sprintf("Status update channel full, dropping update for task %s", taskID))
-	}
-}
-
-// processTaskUpdates 处理任务状态更新
-func (m *Monitor) processTaskUpdates() {
-	defer m.wg.Done()
-	for {
-		select {
-		case <-m.stopChan:
-			return
-		case update := <-m.statusUpdateChan:
-			m.updateTaskStats(update)
-		}
-	}
-}
-
-// updateTaskStats 更新任务统计信息
-func (m *Monitor) updateTaskStats(update TaskStatusUpdate) {
-	m.taskStats.mu.Lock()
-	defer m.taskStats.mu.Unlock()
-
-	// 更新统计信息
-	switch update.NewStatus {
-	case TaskCompleted:
-		m.taskStats.stats.CompletedTasks++
-		m.taskStats.stats.AverageTime = (m.taskStats.stats.AverageTime*time.Duration(m.taskStats.stats.CompletedTasks-1) + update.ExecutionTime) / time.Duration(m.taskStats.stats.CompletedTasks)
-		m.logger.Log("INFO", fmt.Sprintf("Task %s completed in %v", update.TaskID, update.ExecutionTime))
-	case TaskFailed:
-		m.taskStats.stats.FailedTasks++
-		m.logger.Log("ERROR", fmt.Sprintf("Task %s failed after %v", update.TaskID, update.ExecutionTime))
-	}
-	m.taskStats.stats.TotalTasks++
-}
+// 	// 异步发送状态更新
+// 	select {
+// 	case m.statusUpdateChan <- update:
+// 		// 成功发送到通道
+// 	default:
+// 		// 通道已满，记录警告
+// 		m.logger.Log("WARNING", fmt.Sprintf("Status update channel full, dropping update for task %s", taskID))
+// 	}
+// }
 
 // collectMetrics 收集系统指标
 func (m *Monitor) collectMetrics() {
