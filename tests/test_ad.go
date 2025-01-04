@@ -107,7 +107,7 @@ func TestTask_AD() {
 
 	// 提交高优先级任务
 	for i := 1; i <= 1; i++ {
-		taskPool.AddTask(highPriorityTask, 3) // 高优先级
+		taskPool.AddTask(highPriorityTask) // 高优先级
 	}
 
 	time.Sleep(1 * time.Second)

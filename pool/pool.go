@@ -8,6 +8,9 @@ import (
 	"github.com/panjf2000/ants/v2"
 )
 
+// 引入日志模块
+var stressLogger *StressLogger
+
 // Task 任务结构体，定义每个任务的基本信息
 type Task struct {
 	ID string

@@ -104,17 +104,17 @@ func TestTaskPool1() {
 
 	// 提交高优先级任务
 	for i := 1; i <= 1; i++ {
-		taskPool.AddTask(highPriorityTask, 100) // 高优先级
+		taskPool.AddTask(highPriorityTask) // 高优先级
 	}
 
 	// 提交中优先级任务
 	for i := 1; i <= 1; i++ {
-		taskPool.AddTask(mediumPriorityTask, 50) // 中优先级
+		taskPool.AddTask(mediumPriorityTask) // 中优先级
 	}
 
 	// 提交低优先级任务
 	for i := 1; i <= 1; i++ {
-		taskPool.AddTask(lowPriorityTask, 10) // 低优先级
+		taskPool.AddTask(lowPriorityTask) // 低优先级
 	}
 
 	time.Sleep(1 * time.Second)
