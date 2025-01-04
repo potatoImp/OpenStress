@@ -108,13 +108,15 @@ func (p *Pool) Start(runDuration time.Duration) {
 				for {
 					select {
 					case <-ticker.C:
-						// 遍历任务列表并执行任务
-						p.taskListMutex.RLock() // 加读锁
-						// 遍历任务，已经按优先级排序，所以直接执行
-						for _, task := range p.taskList {
+						// 在这里复制任务列表到本地缓存
+						p.taskListMutex.RLock()                          // 加读锁
+						localTaskList := append([]Task{}, p.taskList...) // 复制任务列表到本地
+						p.taskListMutex.RUnlock()                        // 解锁
+
+						// 遍历本地缓存的任务列表并执行任务
+						for _, task := range localTaskList {
 							task.executeWithRetry(threadID) // 执行带重试的任务
 						}
-						p.taskListMutex.RUnlock() // 解锁
 
 					case <-p.stopChannel: // 收到停止信号，退出
 						stressLogger.Log("INFO", fmt.Sprintf("Worker %d received stop signal, stopping.", i))
