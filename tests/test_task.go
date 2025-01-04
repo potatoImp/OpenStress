@@ -4,7 +4,7 @@ import (
 	"OpenStress/pool"
 	"fmt"
 
-	"net/http"
+	// "net/http"
 	"time"
 
 	"OpenStress/result"
@@ -12,7 +12,7 @@ import (
 
 // TestTaskPool 测试任务池的功能
 func TestTaskPool1() {
-	maxWorkers := 100
+	maxWorkers := 3000
 	taskPool, _ := pool.NewPool(maxWorkers)
 
 	stressLogger, _ := pool.GetLogger()
@@ -37,7 +37,7 @@ func TestTaskPool1() {
 		// time.Sleep(1 * time.Second) // 模拟任务执行时间
 		startTime := time.Now()
 		// 发送HTTP请求
-		_, err := http.Get("http://10.10.27.111:8089/index.html")
+		// _, err := http.Get("http://10.10.27.111:8089/index.html")
 		if err != nil {
 			collector.SaveFailureResult(result.ResultData{
 				ID:           "test1",
