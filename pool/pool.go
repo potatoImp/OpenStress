@@ -5,6 +5,8 @@ import (
 	"sort"
 	"sync"
 	"time"
+
+	"github.com/panjf2000/ants/v2"
 )
 
 // 引入日志模块
@@ -24,17 +26,22 @@ type Task struct {
 type Pool struct {
 	maxWorkers  int
 	taskList    sync.Map      // 使用 sync.Map 来管理任务，避免加锁
+	taskPool    *ants.Pool    // ants 协程池
 	stopChannel chan struct{} // 停止信号通道
 	wg          sync.WaitGroup
-	taskChannel chan Task // 任务通道，用于任务分发
 }
 
 // NewPool 创建并初始化任务池
 func NewPool(maxWorkers int) (*Pool, error) {
+	// 使用 ants.NewPool 来创建池
+	pool, err := ants.NewPool(maxWorkers)
+	if err != nil {
+		return nil, err
+	}
 	return &Pool{
 		maxWorkers:  maxWorkers,
+		taskPool:    pool,
 		stopChannel: make(chan struct{}),
-		taskChannel: make(chan Task), // 初始化任务通道
 	}, nil
 }
 
@@ -92,25 +99,6 @@ func (task *Task) executeWithRetry(threadID int32) error {
 	}
 }
 
-// worker 工作协程处理任务
-func (p *Pool) worker(threadID int32) {
-	for {
-		select {
-		case task := <-p.taskChannel:
-			// 执行任务
-			err := task.executeWithRetry(threadID)
-			if err != nil {
-				stressLogger.Log("ERROR", fmt.Sprintf("Task %s execution failed: %v", task.ID, err))
-			} else {
-				stressLogger.Log("INFO", fmt.Sprintf("Task %s executed successfully.", task.ID))
-			}
-		case <-p.stopChannel: // 收到停止信号，退出
-			stressLogger.Log("INFO", fmt.Sprintf("Worker %d received stop signal, stopping.", threadID))
-			return
-		}
-	}
-}
-
 // Start 启动任务池并循环执行任务
 func (p *Pool) Start(runDuration time.Duration) {
 	p.wg.Add(1)
@@ -123,8 +111,40 @@ func (p *Pool) Start(runDuration time.Duration) {
 
 		// 启动所有工作协程
 		for i := 0; i < p.maxWorkers; i++ {
-			go p.worker(int32(i)) // 启动工作协程
-			stressLogger.Log("INFO", fmt.Sprintf("Worker %d started successfully", i))
+			err := p.taskPool.Submit(func() {
+				threadID := int32(i)
+				for {
+					select {
+					case <-ticker.C:
+						// 在这里复制任务列表到本地缓存
+						localTaskList := make([]Task, 0)
+						p.taskList.Range(func(key, value interface{}) bool {
+							localTaskList = append(localTaskList, value.(Task))
+							return true
+						})
+
+						// 按优先级排序本地任务列表
+						sort.SliceStable(localTaskList, func(i, j int) bool {
+							return localTaskList[i].priority > localTaskList[j].priority
+						})
+
+						// 遍历本地缓存的任务列表并执行任务
+						for _, task := range localTaskList {
+							task.executeWithRetry(threadID) // 执行带重试的任务
+						}
+
+					case <-p.stopChannel: // 收到停止信号，退出
+						stressLogger.Log("INFO", fmt.Sprintf("Worker %d received stop signal, stopping.", i))
+						return
+					}
+				}
+			})
+
+			if err != nil {
+				stressLogger.Log("ERROR", fmt.Sprintf("Failed to start worker %d: %v", i, err))
+			} else {
+				stressLogger.Log("INFO", fmt.Sprintf("Worker %d started successfully", i))
+			}
 		}
 
 		// 任务池控制循环

@@ -70,7 +70,7 @@ type CollectorConfig struct {
 // NewCollector 创建新的结果收集器
 func NewCollector(config CollectorConfig) (*Collector, error) {
 	if config.BatchSize <= 0 {
-		config.BatchSize = 100 // 默认批量大小
+		config.BatchSize = 10000 // 默认批量大小
 	}
 
 	// 确保JTL文件目录存在
@@ -88,7 +88,7 @@ func NewCollector(config CollectorConfig) (*Collector, error) {
 		batchSize:       config.BatchSize,
 		outputFormat:    config.OutputFormat,
 		jtlFilePath:     config.JTLFilePath,
-		dataChan:        make(chan ResultData, 1000),
+		dataChan:        make(chan ResultData, 20000),
 		done:            make(chan struct{}),
 		logger:          config.Logger,
 		numGoroutines:   config.NumGoroutines,
