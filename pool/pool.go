@@ -2,30 +2,22 @@ package pool
 
 import (
 	"fmt"
-	"sort"
 	"sync"
 	"time"
 
 	"github.com/panjf2000/ants/v2"
 )
 
-// 引入日志模块
-var stressLogger *StressLogger
-
 // Task 任务结构体，定义每个任务的基本信息
 type Task struct {
-	ID         string
-	fn         func(threadID int32) error // 任务执行的函数，接收一个 threadID 参数并返回错误
-	priority   int                        // 任务优先级（数字越大优先级越高）
-	retries    int                        // 重试次数
-	maxRetries int                        // 最大重试次数
-	timeout    time.Duration              // 任务超时时间
+	ID string
+	fn func(threadID int32) error // 任务执行的函数，接收一个 threadID 参数并返回错误
 }
 
 // Pool 任务池结构体
 type Pool struct {
 	maxWorkers  int
-	taskList    sync.Map      // 使用 sync.Map 来管理任务，避免加锁
+	taskList    []Task        // 任务列表，直接存储任务
 	taskPool    *ants.Pool    // ants 协程池
 	stopChannel chan struct{} // 停止信号通道
 	wg          sync.WaitGroup
@@ -45,58 +37,21 @@ func NewPool(maxWorkers int) (*Pool, error) {
 	}, nil
 }
 
-// AddTask 添加单个任务到任务列表并排序
-func (p *Pool) AddTask(fn func(threadID int32) error, priority int) {
+// AddTask 添加单个任务到任务列表
+func (p *Pool) AddTask(fn func(threadID int32) error) {
 	// 创建一个新的任务
 	task := Task{
-		ID:         fmt.Sprintf("task-%d", time.Now().UnixNano()), // 使用时间戳作为任务ID
-		fn:         fn,
-		priority:   priority, // 设置优先级
-		retries:    0,        // 默认重试为0
-		maxRetries: 3,        // 默认最大重试次数为3
-		timeout:    0,        // 默认不设置超时时间
+		ID: fmt.Sprintf("task-%d", len(p.taskList)+1), // 自动生成任务ID
+		fn: fn,
 	}
 
 	// 将任务添加到任务列表
-	taskList := make([]Task, 0)
-	p.taskList.Range(func(key, value interface{}) bool {
-		taskList = append(taskList, value.(Task))
-		return true
-	})
-
-	// 将任务添加到本地任务列表并按优先级排序
-	taskList = append(taskList, task)
-	sort.SliceStable(taskList, func(i, j int) bool {
-		return taskList[i].priority > taskList[j].priority
-	})
-
-	// 将任务列表存回 sync.Map
-	for i, t := range taskList {
-		p.taskList.Store(i, t)
-	}
-
-	stressLogger.Log("INFO", fmt.Sprintf("Task %s added to the task list.", task.ID))
+	p.taskList = append(p.taskList, task)
 }
 
-// executeWithRetry 执行任务的重试逻辑
-func (task *Task) executeWithRetry(threadID int32) error {
-	var retries int
-	for {
-		err := task.fn(threadID) // 执行任务
-		if err == nil {
-			return nil // 任务成功，退出
-		}
-
-		// 达到最大重试次数时退出
-		if retries >= task.maxRetries {
-			stressLogger.Log("ERROR", fmt.Sprintf("Task %s failed after %d retries.", task.ID, retries))
-			return err
-		}
-
-		retries++
-		// 使用指数退避策略来延迟重试
-		time.Sleep(time.Duration(1<<retries) * time.Second) // 延迟 2^retries 秒
-	}
+// execute 执行任务
+func (task *Task) execute(threadID int32) error {
+	return task.fn(threadID) // 执行任务
 }
 
 // Start 启动任务池并循环执行任务
@@ -116,34 +71,20 @@ func (p *Pool) Start(runDuration time.Duration) {
 				for {
 					select {
 					case <-ticker.C:
-						// 在这里复制任务列表到本地缓存
-						localTaskList := make([]Task, 0)
-						p.taskList.Range(func(key, value interface{}) bool {
-							localTaskList = append(localTaskList, value.(Task))
-							return true
-						})
-
-						// 按优先级排序本地任务列表
-						sort.SliceStable(localTaskList, func(i, j int) bool {
-							return localTaskList[i].priority > localTaskList[j].priority
-						})
-
-						// 遍历本地缓存的任务列表并执行任务
-						for _, task := range localTaskList {
-							task.executeWithRetry(threadID) // 执行带重试的任务
+						// 遍历任务列表并执行任务
+						for _, task := range p.taskList {
+							task.execute(threadID) // 执行任务
 						}
 
 					case <-p.stopChannel: // 收到停止信号，退出
-						stressLogger.Log("INFO", fmt.Sprintf("Worker %d received stop signal, stopping.", i))
 						return
 					}
 				}
 			})
 
 			if err != nil {
-				stressLogger.Log("ERROR", fmt.Sprintf("Failed to start worker %d: %v", i, err))
-			} else {
-				stressLogger.Log("INFO", fmt.Sprintf("Worker %d started successfully", i))
+				// 如果提交任务失败，打印错误
+				fmt.Printf("Failed to start worker %d: %v\n", i, err)
 			}
 		}
 
@@ -151,14 +92,10 @@ func (p *Pool) Start(runDuration time.Duration) {
 		for {
 			select {
 			case <-timeout: // 超时，停止任务池
-				stressLogger.Log("INFO", "Task pool reached specified runtime, stopping.")
 				close(p.stopChannel) // 发送停止信号
 				return
 			case <-p.stopChannel: // 收到停止信号，停止任务池
-				stressLogger.Log("INFO", "Received stop signal, stopping task pool.")
 				return
-			case <-ticker.C: // 每 100 毫秒检查一次
-				// 可以在这里处理其他定时任务
 			}
 		}
 	}()
