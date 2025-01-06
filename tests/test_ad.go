@@ -21,12 +21,12 @@ func TestTask_AD() {
 	stressLogger, _ := pool.GetLogger()
 	// result 模块测试方法
 	collectorConfig := result.CollectorConfig{
-		BatchSize:       10,
+		BatchSize:       20000,
 		OutputFormat:    "jtl",
 		JTLFilePath:     "path/to/jtl/file.jtl",
 		Logger:          stressLogger,
-		NumGoroutines:   2,
-		CollectInterval: 5,
+		NumGoroutines:   10,
+		CollectInterval: 50,
 		TaskID:          "testTask",
 	}
 	collector, err := result.NewCollector(collectorConfig)
@@ -35,30 +35,46 @@ func TestTask_AD() {
 	}
 	collector.InitializeCollector()
 
-	// 定义高优先级任务
-	highPriorityTask := func(threadID int32) {
-
-		krb5conf := `
+	// 外部配置加载
+	var krb5conf = `
 [libdefaults]
-    default_realm = TEST.COM
+    default_realm = WTEST.COM
     udp_preference_limit = 1
 [realms]
     TEST.COM = {
-        kdc = 10.10.27.145
-        admin_server = 10.10.27.145
+        kdc = 10.10.27.65
+        admin_server = 10.10.27.65
     }
 [domain_realm]
-    .example.com = EXAMPLE.COM
-    example.com = EXAMPLE.COM
-    `
-		conf, err := config.NewConfigFromString(krb5conf)
+    .example.com = WTEST.COM
+    example.com = WTEST.COM
+`
+	var conf, _ = config.NewConfigFromString(krb5conf)
+	fmt.Println("krb5配置信息初始化完成：", krb5conf)
+	// 定义高优先级任务
+	highPriorityTask := func(threadID int32) {
+
+		// 		krb5conf := `
+		// [libdefaults]
+		//     default_realm = TEST.COM
+		//     udp_preference_limit = 1
+		// [realms]
+		//     TEST.COM = {
+		//         kdc = 10.10.27.145
+		//         admin_server = 10.10.27.145
+		//     }
+		// [domain_realm]
+		//     .example.com = EXAMPLE.COM
+		//     example.com = EXAMPLE.COM
+		//     `
+		// conf, err := config.NewConfigFromString(krb5conf)
 		if err != nil {
 			fmt.Println("Error loading krb5 configuration: ", err)
 
 		}
 		startTime := time.Now()
 		// 创建 Kerberos 客户端
-		Kerberos_client := client.NewClientWithPassword("Administrator", "TEST.COM", "Emm@2024", conf)
+		Kerberos_client := client.NewClientWithPassword("Administrator", "WTEST.COM", "Emm@2022", conf)
 
 		// 登录
 		err = Kerberos_client.Login()
@@ -132,8 +148,6 @@ func TestTask_AD() {
 		fmt.Println("Error generating stats:", err)
 		return
 	}
-	fmt.Println("Performance Stats:")
-	fmt.Println(stats)
 
 	// 保存HTML报告到文件
 	reportPath, err := collector.SaveReportToFile(stats, "SGP-XCAD产品认证性能测试报告")

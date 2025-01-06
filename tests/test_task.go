@@ -4,6 +4,7 @@ import (
 	"OpenStress/pool"
 	"fmt"
 
+	// "net/http"
 	"time"
 
 	"OpenStress/result"
@@ -11,7 +12,7 @@ import (
 
 // TestTaskPool 测试任务池的功能
 func TestTaskPool1() {
-	maxWorkers := 500
+	maxWorkers := 5
 	taskPool := pool.NewPool(maxWorkers)
 
 	stressLogger, _ := pool.GetLogger()
@@ -33,13 +34,13 @@ func TestTaskPool1() {
 
 	// 定义高优先级任务
 	highPriorityTask := func(threadID int32) {
-		// time.Sleep(1 * time.Second) // 模拟任务执行时间
+		time.Sleep(1 * time.Second) // 模拟任务执行时间
 		// resp, err := http.Get("http://10.10.27.111:8089/index.html")
 		if err != nil {
 			collector.SaveFailureResult(result.ResultData{
 				ID:           "test1",
 				Type:         result.Failure,
-				ResponseTime: 120 * time.Millisecond,
+				ResponseTime: 0,
 				StartTime:    time.Now(),
 				EndTime:      time.Now().Add(120 * time.Millisecond),
 				StatusCode:   404,
@@ -57,7 +58,7 @@ func TestTaskPool1() {
 		collector.SaveSuccessResult(result.ResultData{
 			ID:           "test1",
 			Type:         result.Success,
-			ResponseTime: 1 * time.Millisecond,
+			ResponseTime: 0,
 			StartTime:    time.Now(),
 			EndTime:      time.Now().Add(120 * time.Millisecond),
 			StatusCode:   200,
@@ -98,19 +99,19 @@ func TestTaskPool1() {
 	}
 
 	// 提交高优先级任务
-	for i := 1; i <= 2000; i++ {
+	for i := 1; i <= 100; i++ {
 		taskID := fmt.Sprintf("请求resources-8080-%d", i)
 		taskPool.Submit(highPriorityTask, 3, taskID, 5*time.Second) // 高优先级
 	}
 
 	// 提交中优先级任务
-	for i := 1; i <= 5; i++ {
+	for i := 1; i <= 2; i++ {
 		taskID := fmt.Sprintf("Medium-Priority-Task-%d", i)
 		taskPool.Submit(mediumPriorityTask, 2, taskID, 5*time.Second) // 中优先级
 	}
 
 	// 提交低优先级任务
-	for i := 1; i <= 5; i++ {
+	for i := 1; i <= 2; i++ {
 		taskID := fmt.Sprintf("Low-Priority-Task-%d", i)
 		taskPool.Submit(lowPriorityTask, 1, taskID, 5*time.Second) // 低优先级
 	}

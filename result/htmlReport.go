@@ -3,18 +3,21 @@ package result
 import (
 	"fmt"
 	"strings"
+
 	"time"
 )
 
+// GenerateSummaryReport 生成测试报告
 func (c *Collector) GenerateSummaryReport(results []ResultData) string {
 	var totalRequests, successCount, failureCount int
 	var totalResponseTime time.Duration
-	var maxResponseTime, minResponseTime time.Duration = 0, time.Hour * 24 * 365
+	var maxResponseTime, minResponseTime time.Duration = 0, time.Hour * 24 * 365 // 初始为很大值
 	var totalSentData, totalReceivedData int64
 
-	var firstTimestamp int64 = results[0].StartTime.UnixMilli()
-	var lastTimestamp int64
+	var firstTimestamp int64 = results[0].StartTime.UnixMilli() // 第一条记录的时间戳
+	var lastTimestamp int64                                     // 最后一条记录的时间戳
 
+	// 统计各项数据
 	for _, result := range results {
 		totalRequests++
 		if result.Type == Success {
@@ -23,37 +26,46 @@ func (c *Collector) GenerateSummaryReport(results []ResultData) string {
 			failureCount++
 		}
 
+		// 累加响应时间
 		totalResponseTime += result.ResponseTime
 
+		// 最大响应时间
 		if result.ResponseTime > maxResponseTime {
 			maxResponseTime = result.ResponseTime
 		}
 
+		// 最小响应时间
 		if result.ResponseTime < minResponseTime {
 			minResponseTime = result.ResponseTime
 		}
 
+		// 累加发送和接收的数据
 		totalSentData += result.DataSent
 		totalReceivedData += result.DataReceived
 
+		// 更新最后一个时间戳
 		lastTimestamp = result.EndTime.UnixMilli()
 	}
 
+	// 计算成功率和平均响应时间
 	successRate := float64(successCount) / float64(totalRequests) * 100
 	avgResponseTime := totalResponseTime / time.Duration(totalRequests)
 
+	// 计算 TPS (每秒事务数)
 	var tps float64
 	totalRunTime := time.Duration(lastTimestamp-firstTimestamp) * time.Millisecond
 	if totalRunTime.Seconds() > 0 {
 		tps = float64(totalRequests) / totalRunTime.Seconds()
 	}
 
+	// 计算每秒发送和接收的数据流量 (单位为字节)
 	var sentDataPerSec, receivedDataPerSec float64
 	if totalRunTime.Seconds() > 0 {
 		sentDataPerSec = float64(totalSentData) / totalRunTime.Seconds()
 		receivedDataPerSec = float64(totalReceivedData) / totalRunTime.Seconds()
 	}
 
+	// 将每秒发送和接收的字节数转换为适当的单位
 	sentDataPerSecStr := formatBytes(int64(sentDataPerSec))
 	receivedDataPerSecStr := formatBytes(int64(receivedDataPerSec))
 	totalSentDataStr := formatBytes(totalSentData)
@@ -74,20 +86,25 @@ func (c *Collector) GenerateSummaryReport(results []ResultData) string {
 	report += fmt.Sprintf("总发送数据量: %s\n", totalSentDataStr)
 	report += fmt.Sprintf("总接收数据量: %s\n", totalReceivedDataStr)
 
+	// 返回报告
 	return report
 }
 
+// GenerateHTMLReport 生成性能测试报告的HTML
 func GenerateHTMLReport(stats map[string]interface{}, title ...string) string {
 	var builder strings.Builder
 
-	pageTitle := "性能测试报告"
-	logoPath := ""
-	analysisContent := generateDefaultAnalysis(stats)
+	// 可选的参数，使用默认值
+	pageTitle := "性能测试报告"                             // 默认标题
+	logoPath := ""                                    // 默认无logo
+	analysisContent := generateDefaultAnalysis(stats) // 根据测试数据自动生成的默认分析内容
 
+	// 如果传入了自定义的标题，则使用传入的标题
 	if len(title) > 0 {
 		pageTitle = title[0]
 	}
 
+	// 参考标准列表
 	standards := []PerformanceStandard{
 		{Field: "AvgResponseTime", Max: MaxAvgResponseTime, Compare: func(value interface{}) float64 {
 			return value.(time.Duration).Seconds()
@@ -103,6 +120,7 @@ func GenerateHTMLReport(stats map[string]interface{}, title ...string) string {
 		}},
 	}
 
+	// HTML基础结构
 	builder.WriteString("<!DOCTYPE html>")
 	builder.WriteString("<html lang='zh'>")
 	builder.WriteString("<head>")
@@ -110,23 +128,27 @@ func GenerateHTMLReport(stats map[string]interface{}, title ...string) string {
 	builder.WriteString("<meta name='viewport' content='width=device-width, initial-scale=1.0'>")
 	builder.WriteString("<title>" + pageTitle + "</title>")
 
+	// 如果传入了logo路径，则添加logo
 	if logoPath != "" {
 		builder.WriteString("<link rel='icon' href='" + logoPath + "'>") // 设置logo图标
 	}
 
+	// 更新CSS和JS文件路径
 	builder.WriteString("<link rel='stylesheet' href='static/styles.css'>")
 	builder.WriteString("<style>")
-	builder.WriteString(".error {color: red; font-weight: bold;}")
-	builder.WriteString(".warning {color: orange; font-weight: bold;}")
-	builder.WriteString(".chart {height: auto; min-height: 400px;}")
+	builder.WriteString(".error {color: red; font-weight: bold;}")      // 错误字段样式
+	builder.WriteString(".warning {color: orange; font-weight: bold;}") // 警告字段样式
+	builder.WriteString(".chart {height: auto; min-height: 400px;}")    // 添加自动高度，最小高度 400px
 	builder.WriteString("</style>")
-	builder.WriteString("<script src='https://cdn.jsdelivr.net/npm/chart.js'></script>")
+	builder.WriteString("<script src='https://cdn.jsdelivr.net/npm/chart.js'></script>") // 引入Chart.js库
 	builder.WriteString("</head>")
 	builder.WriteString("<body>")
 	builder.WriteString("<div class='container'>")
 
+	// 标题部分
 	builder.WriteString("<header><h1>" + pageTitle + "</h1></header>")
 
+	// 测试概览部分
 	builder.WriteString("<section class='report-summary'>")
 	builder.WriteString("<h2>测试概览</h2>")
 	builder.WriteString("<table>")
@@ -135,16 +157,19 @@ func GenerateHTMLReport(stats map[string]interface{}, title ...string) string {
 	builder.WriteString("</table>")
 	builder.WriteString("</section>")
 
+	// 测试统计数据部分
 	builder.WriteString("<section class='test-statistics'>")
 	builder.WriteString("<h2>测试统计数据</h2>")
 	builder.WriteString("<table>")
 
+	// 统计数据列表，包括 SuccessRate
 	keys := []string{"TotalRequests", "SuccessCount", "FailureCount", "SuccessRate", "AvgResponseTime", "MaxResponseTime", "MinResponseTime", "TotalRunTime", "TPS", "SentDataPerSec", "ReceivedDataPerSec", "TotalSentData", "TotalReceivedData"}
 
 	for _, key := range keys {
 		value := stats[key]
 		class := ""
 
+		// 针对每个字段比较参考标准
 		for _, standard := range standards {
 			if standard.Field == key {
 				compareValue := standard.Compare(value)
@@ -156,14 +181,17 @@ func GenerateHTMLReport(stats map[string]interface{}, title ...string) string {
 			}
 		}
 
+		// 对 AvgResponseTime, MaxResponseTime, MinResponseTime, TotalRunTime 字段特殊处理，转换为毫秒并保留两位小数
 		if key == "AvgResponseTime" || key == "MaxResponseTime" || key == "MinResponseTime" || key == "TotalRunTime" {
 			value = fmt.Sprintf("%.2f ms", float64(value.(time.Duration))/float64(time.Millisecond))
 		}
 
+		// 对 SuccessRate 特殊处理，添加 % 符号
 		if key == "SuccessRate" {
 			value = fmt.Sprintf("%.3f%%", value)
 		}
 
+		// 生成数据行
 		builder.WriteString("<tr>")
 		builder.WriteString("<th>" + key + "</th>")
 		if class != "" {
@@ -177,22 +205,30 @@ func GenerateHTMLReport(stats map[string]interface{}, title ...string) string {
 	builder.WriteString("</table>")
 	builder.WriteString("</section>")
 
+	// 统计图部分 - 使用 <img> 标签嵌入 SVG 图像
 	builder.WriteString("<section class='charts'>")
 	builder.WriteString("<h2>视图展示</h2>")
 
+	// 添加TPS趋势图部分
 	builder.WriteString("<div class='chart'><h3>TPS趋势图</h3>")
+	// 使用iframe标签来嵌入tps_chart.html，并应用优化后的样式
 	builder.WriteString("<iframe class='tps-chart' src='static/tps_chart.html' frameborder='0'></iframe>")
 	builder.WriteString("</div>")
 
+	// 添加response_time_chart趋势图部分
 	builder.WriteString("<div class='chart'><h3>请求响应时间趋势图</h3>")
+	// 使用iframe标签来嵌入response_time_chart.html，并应用优化后的样式
 	builder.WriteString("<iframe class='tps-chart' src='static/response_time_chart.html' frameborder='0'></iframe>")
 	builder.WriteString("</div>")
 
+	// 添加response_time_chart趋势图部分
 	builder.WriteString("<div class='chart'><h3>网络流量趋势图</h3>")
+	// 使用iframe标签来嵌入flow_trend_chart.html，并应用优化后的样式
 	builder.WriteString("<iframe class='tps-chart' src='static/flow_trend_chart.html' frameborder='0'></iframe>")
 	builder.WriteString("</div>")
 	builder.WriteString("</section>")
 
+	// 分析部分
 	builder.WriteString("<section class='analysis'>")
 	builder.WriteString("<h2>分析</h2>")
 	builder.WriteString("<p>" + analysisContent + "</p>")
@@ -205,6 +241,8 @@ func GenerateHTMLReport(stats map[string]interface{}, title ...string) string {
 
 	builder.WriteString("<section class='reference-standards'>")
 	builder.WriteString("<h3>参考概念</h3>")
+
+	// 增加概念的外观样式，使其不那么密集
 	builder.WriteString("<div class='concept-card'><p><strong>TPS (Transactions Per Second)</strong>：指每秒钟能够处理的事务数。事务通常指一个完整的请求-响应周期，TPS 越高，说明系统的处理能力越强。常用于衡量系统的吞吐量。</p></div>")
 
 	builder.WriteString("<div class='concept-card'><p><strong>QPS (Queries Per Second)</strong>：指每秒钟能够处理的查询数。QPS 更侧重于查询操作的性能，通常用于数据库或搜索引擎的性能测试。</p></div>")
@@ -231,13 +269,16 @@ func GenerateHTMLReport(stats map[string]interface{}, title ...string) string {
 
 	builder.WriteString("</section>")
 
-	builder.WriteString("</div>")
-	builder.WriteString("<script src='static/script.js'></script>")
+	// 结束HTML
+	builder.WriteString("</div>")                                   // container
+	builder.WriteString("<script src='static/script.js'></script>") // 引入新的 JavaScript 文件
 	builder.WriteString("</body></html>")
 
+	// 返回生成的HTML内容
 	return builder.String()
 }
 
+// generateCSS 生成默认的CSS样式
 func generateCSS() string {
 	return `
 /* General Reset */
@@ -437,6 +478,7 @@ table td {
 `
 }
 
+// generateScript 生成 static/script.js 的内容
 func generateScript() string {
 	return `
 document.addEventListener("DOMContentLoaded", function() {
