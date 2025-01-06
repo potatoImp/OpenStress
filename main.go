@@ -75,8 +75,8 @@ func main() {
 	// handleError(err)
 
 	// pool 模块测试方法
-	tests.TestTask_AD()
-	// tests.TestTaskPool1()
+	// tests.TestTask_AD()
+	tests.TestTaskPool1()
 
 	// // result 模块测试方法
 	// collectorConfig := result.CollectorConfig{

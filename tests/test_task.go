@@ -36,6 +36,7 @@ func TestTaskPool1() {
 	highPriorityTask := func(threadID int32) {
 		time.Sleep(1 * time.Second) // 模拟任务执行时间
 		// resp, err := http.Get("http://10.10.27.111:8089/index.html")
+		// defer resp.Body.Close()
 		if err != nil {
 			collector.SaveFailureResult(result.ResultData{
 				ID:           "test1",

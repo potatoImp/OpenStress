@@ -10,7 +10,7 @@ import (
 	"github.com/go-echarts/go-echarts/v2/opts"
 )
 
-// adjustXAxisPoints 用于按平均间隔截取 10 个中间时间点，并根据这些时间点返回对应的 Y 轴数值
+// adjustXAxisPoints 用于按平均间隔截取 20 个中间时间点，并根据这些时间点返回对应的 Y 轴数值
 // values 数组表示从 startTime 到 endTime 之间每秒的数据，按顺序对应
 func adjustXAxisPoints(startTime, endTime time.Time, values []int) ([]string, []int) {
 	// 如果传入的 values 数组为空，返回错误
@@ -19,8 +19,8 @@ func adjustXAxisPoints(startTime, endTime time.Time, values []int) ([]string, []
 		return nil, nil
 	}
 
-	// 目标是从 startTime 到 endTime 之间均匀切割成 10 段，得到 10 个中间点和 11 个边界点
-	numSegments := 10
+	// 目标是从 startTime 到 endTime 之间均匀切割成 20 段，得到 20 个中间点和 21 个边界点
+	numSegments := 20
 
 	// 计算总时间间隔（秒）
 	timeInterval := endTime.Sub(startTime).Seconds()
@@ -29,8 +29,8 @@ func adjustXAxisPoints(startTime, endTime time.Time, values []int) ([]string, []
 	segmentTime := timeInterval / float64(numSegments)
 
 	// 创建 xAxis 和 yAxis 数组
-	xAxis := make([]string, numSegments) // 存储 10 个中间点时间
-	yAxis := make([]int, numSegments+1)  // 存储 11 个边界点对应的值
+	xAxis := make([]string, numSegments) // 存储 20 个中间点时间
+	yAxis := make([]int, numSegments+1)  // 存储 21 个边界点对应的值
 
 	// 均匀切割时间，获取边界时间点和中间时间点
 	for i := 0; i < numSegments; i++ {

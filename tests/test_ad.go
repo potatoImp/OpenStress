@@ -68,10 +68,10 @@ func TestTask_AD() {
 		//     example.com = EXAMPLE.COM
 		//     `
 		// conf, err := config.NewConfigFromString(krb5conf)
-		if err != nil {
-			fmt.Println("Error loading krb5 configuration: ", err)
+		// if err != nil {
+		// 	fmt.Println("Error loading krb5 configuration: ", err)
 
-		}
+		// }
 		startTime := time.Now()
 		// 创建 Kerberos 客户端
 		Kerberos_client := client.NewClientWithPassword("Administrator", "WTEST.COM", "Emm@2022", conf)
