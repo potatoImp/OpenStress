@@ -83,7 +83,7 @@ func InitializeLogger(logDir, logFile, moduleName string) (*StressLogger, error)
 
 		stressLogger = &StressLogger{
 			logger:       logger,
-			logChan:      make(chan *LogEntry, 1000),
+			logChan:      make(chan *LogEntry, 10000),
 			module:       moduleName,
 			file:         fileWriter,
 			closed:       false,
