@@ -91,8 +91,18 @@ func (p *Pool) worker() {
 			},
 		}
 
-		// Submit the task to the pool
-		err := p.taskPool.Submit(task.fn)
+		// Submit the task to the pool with panic recovery
+		err := p.taskPool.Submit(func() {
+			// 自动使用 defer 和 recover 捕获 panic
+			defer func() {
+				if r := recover(); r != nil {
+					stressLogger.Log("ERROR", fmt.Sprintf("Task %s panicked: %v", task.ID, r))
+				}
+			}()
+
+			// 执行任务
+			task.fn()
+		})
 		if err != nil {
 			stressLogger.Log("ERROR", fmt.Sprintf("Failed to submit task %s: %v", task.ID, err))
 		}
@@ -111,12 +121,22 @@ func (p *Pool) Submit(fn func(threadID int32), priority int, taskID string, time
 		fn:         func() { fn(threadID) }, // Pass the threadID to the task function
 		priority:   priority,
 		retries:    0, // Default retries
-		maxRetries: 3, // Maximum retries
+		maxRetries: 1, // Maximum retries
 		timeout:    timeout,
 	}
 
-	// Submit task to ants pool
-	err := p.taskPool.Submit(task.fn)
+	// Submit task to ants pool with panic recovery
+	err := p.taskPool.Submit(func() {
+		// 使用 defer 和 recover 捕获 panic 错误
+		defer func() {
+			if r := recover(); r != nil {
+				stressLogger.Log("ERROR", fmt.Sprintf("Task %s panicked: %v", taskID, r))
+			}
+		}()
+
+		// 执行任务
+		task.fn()
+	})
 	if err != nil {
 		stressLogger.Log("ERROR", fmt.Sprintf("Failed to submit task %s: %v", taskID, err))
 	}

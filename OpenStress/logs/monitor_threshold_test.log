@@ -1,8 +1,0 @@
-2024-12-12 19:55:22.584 [INFO] [ThresholdTest] Monitor started
-2024-12-12 19:55:23.589 [WARNING] [ThresholdTest] Number of goroutines (26) exceeded threshold (10)
-2024-12-12 19:55:24.589 [WARNING] [ThresholdTest] Number of goroutines (25) exceeded threshold (10)
-2024-12-12 19:55:27.599 [INFO] [ThresholdTest] Monitor stopped
-2024-12-12 19:59:34.494 [INFO] [ThresholdTest] Monitor started
-2024-12-12 19:59:35.505 [WARNING] [ThresholdTest] Number of goroutines (27) exceeded threshold (10)
-2024-12-12 19:59:36.503 [WARNING] [ThresholdTest] Number of goroutines (22) exceeded threshold (10)
-2024-12-12 19:59:39.502 [INFO] [ThresholdTest] Monitor stopped
