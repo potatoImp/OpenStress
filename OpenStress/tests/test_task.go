@@ -4,7 +4,7 @@ import (
 	"OpenStress/pool"
 	"fmt"
 
-	"net/http"
+	// "net/http"
 	"time"
 
 	"OpenStress/result"
@@ -36,13 +36,13 @@ func TestTaskPool1() {
 	highPriorityTask := func(threadID int32) {
 		time.Sleep(1 * time.Second) // 模拟任务执行时间
 
-		resp, err := http.Get("http://10.10.27.111:8089/index.html")
+		// resp, err := http.Get("http://10.10.27.111:8089/index.html")
 		// if err != nil {
 		// 	// 连接失败时处理错误
 		// 	fmt.Println("Request failed:", err)
 		// 	return // 可以提前返回，避免执行到 defer 语句
 		// }
-		defer resp.Body.Close()
+		// defer resp.Body.Close()
 		if err != nil {
 			collector.SaveFailureResult(result.ResultData{
 				ID:           "test1",
@@ -158,5 +158,5 @@ func TestTaskPool1() {
 	// 输出生成的报告路径
 	fmt.Printf("测试报告已生成：%s\n", reportPath)
 
-	collector.CloseCollector()
+	// collector.CloseCollector()
 }

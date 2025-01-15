@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"strings"
 
+	"encoding/json"
+
+	"OpenStress/internal/llmProvider"
 	"time"
 )
 
@@ -90,14 +93,126 @@ func (c *Collector) GenerateSummaryReport(results []ResultData) string {
 	return report
 }
 
+// 提取 SystemPerformance 和 Risk 字段的函数
+func extractSystemPerformanceAndRisk(data map[string]interface{}) (string, string, string, error) {
+	// 1. 获取 choices 中的第一个元素
+	choices, ok := data["choices"].([]interface{})
+	if !ok || len(choices) == 0 {
+		return "", "", "", fmt.Errorf("无法获取 choices 数据")
+	}
+
+	// 2. 获取第一个元素中的 message.content 字段
+	choice, ok := choices[0].(map[string]interface{})
+	if !ok {
+		return "", "", "", fmt.Errorf("无法获取 choice 数据")
+	}
+
+	message, ok := choice["message"].(map[string]interface{})
+	if !ok {
+		return "", "", "", fmt.Errorf("无法获取 message 数据")
+	}
+
+	content, ok := message["content"].(string)
+	if !ok {
+		return "", "", "", fmt.Errorf("无法获取 content 字段")
+	}
+
+	// 3. 去掉 content 中的 ```json 和 ```, 清理字符串
+	content = strings.TrimPrefix(content, "```json\n")
+	content = strings.TrimSuffix(content, "```")
+
+	// 4. 将 content 字段中的 JSON 字符串解析为新的 map
+	var analysisData map[string]interface{}
+	err := json.Unmarshal([]byte(content), &analysisData)
+	if err != nil {
+		return "", "", "", fmt.Errorf("无法解析 content 中的 JSON 数据: %w", err)
+	}
+
+	// 5. 提取 SystemPerformance 和 Risk 字段
+	systemPerformance, ok := analysisData["SystemPerformance"].(string)
+	if !ok {
+		systemPerformance = "未能获取系统性能分析"
+	}
+
+	risk, ok := analysisData["Risk"].(string)
+	if !ok {
+		risk = "未能获取风险分析"
+	}
+
+	nextPlan, ok := analysisData["NextPlan"].(string)
+	if !ok {
+		nextPlan = "未能获取下一步计划建议"
+	}
+
+	return systemPerformance, risk, nextPlan, nil
+}
+
+// 打印所有字段的函数
+func printFields(data map[string]interface{}) {
+	// 打印根字段 choices
+	choices, ok := data["choices"].([]interface{})
+	if !ok {
+		fmt.Println("无法获取 choices 数据")
+		return
+	}
+	fmt.Println("choices:")
+	for i, choice := range choices {
+		choiceMap, ok := choice.(map[string]interface{})
+		if !ok {
+			fmt.Println("无法解析 choice 数据")
+			continue
+		}
+
+		// 打印每个 choice 的字段
+		fmt.Printf("  Choice %d:\n", i+1)
+		for key, value := range choiceMap {
+			fmt.Printf("    %s: %v\n", key, value)
+		}
+
+		// 打印 message.content 字段内容
+		message, ok := choiceMap["message"].(map[string]interface{})
+		if !ok {
+			fmt.Println("    message 字段未找到或类型错误")
+			continue
+		}
+		content, ok := message["content"].(string)
+		if !ok {
+			fmt.Println("    message.content 字段未找到或类型错误")
+			continue
+		}
+
+		// 去掉 ```json 和 ```
+		content = strings.TrimPrefix(content, "```json\n")
+		content = strings.TrimSuffix(content, "```")
+
+		// 打印 content 字段内容
+		fmt.Println("    message.content:")
+		fmt.Println(content)
+
+		// 解析 content 为 JSON 对象并打印
+		var analysisData map[string]interface{}
+		err := json.Unmarshal([]byte(content), &analysisData)
+		if err != nil {
+			fmt.Println("    无法解析 content 字段中的 JSON 数据:", err)
+			continue
+		} else {
+			fmt.Println("    content 解析后的数据:")
+			for key, value := range analysisData {
+				// 打印解析后的每个字段
+				fmt.Printf("      %s: %v\n", key, value)
+			}
+		}
+	}
+}
+
 // GenerateHTMLReport 生成性能测试报告的HTML
-func GenerateHTMLReport(stats map[string]interface{}, title ...string) string {
+func GenerateHTMLReport(stats map[string]interface{}, useLLMProvider bool, title ...string) string {
 	var builder strings.Builder
 
 	// 可选的参数，使用默认值
-	pageTitle := "性能测试报告"                             // 默认标题
-	logoPath := ""                                    // 默认无logo
-	analysisContent := generateDefaultAnalysis(stats) // 根据测试数据自动生成的默认分析内容
+	pageTitle := "性能测试报告" // 默认标题
+	logoPath := ""        // 默认无logo
+	// analysisContent := generateDefaultAnalysis(stats) // 不通过llm进行数据分析时，则根据测试数据自动生成的默认分析内容
 
 	// 如果传入了自定义的标题，则使用传入的标题
 	if len(title) > 0 {
@@ -150,7 +265,7 @@ func GenerateHTMLReport(stats map[string]interface{}, title ...string) string {
 
 	// 测试概览部分
 	builder.WriteString("<section class='report-summary'>")
-	builder.WriteString("<h2>测试概览</h2>")
+	builder.WriteString("<h2><span class='section-icon'>📋</span>测试概览</h2>")
 	builder.WriteString("<table>")
 	builder.WriteString("<tr><th>开始时间</th><td>" + time.Unix(stats["AvgTpsStartTime"].(int64), 0).Format("2006-01-02 15:04:05") + "</td></tr>")
 	builder.WriteString("<tr><th>结束时间</th><td>" + time.Unix(stats["AvgTpsEndTime"].(int64), 0).Format("2006-01-02 15:04:05") + "</td></tr>")
@@ -159,7 +274,7 @@ func GenerateHTMLReport(stats map[string]interface{}, title ...string) string {
 
 	// 测试统计数据部分
 	builder.WriteString("<section class='test-statistics'>")
-	builder.WriteString("<h2>测试统计数据</h2>")
+	builder.WriteString("<h2><span class='section-icon'>📊</span>测试统计数据</h2>")
 	builder.WriteString("<table>")
 
 	// 统计数据列表，包括 SuccessRate
@@ -207,7 +322,7 @@ func GenerateHTMLReport(stats map[string]interface{}, title ...string) string {
 
 	// 统计图部分 - 使用 <img> 标签嵌入 SVG 图像
 	builder.WriteString("<section class='charts'>")
-	builder.WriteString("<h2>视图展示</h2>")
+	builder.WriteString("<h2><span class='section-icon'>📈</span>视图展示</h2>")
 
 	// 添加TPS趋势图部分
 	builder.WriteString("<div class='chart'><h3>TPS趋势图</h3>")
@@ -228,14 +343,101 @@ func GenerateHTMLReport(stats map[string]interface{}, title ...string) string {
 	builder.WriteString("</div>")
 	builder.WriteString("</section>")
 
-	// 分析部分
-	builder.WriteString("<section class='analysis'>")
-	builder.WriteString("<h2>分析</h2>")
-	builder.WriteString("<p>" + analysisContent + "</p>")
+	// // LLMRequestParams 配置
+	// llmParams := llmProvider.LLMRequestParams{
+	// 	APIType:     "kimi",
+	// 	BaseURL:     "https://api.moonshot.cn/v1/chat",
+	// 	APIKey:      "sk-UyI3Y5zBNDNuyZ83ql6QIrQwLfwO2GYgh0s13hTBY8Fcn5ae", // 请替换为实际的 API Key
+	// 	Model:       "kimi 8k",
+	// 	Proxy:       "", // 如有需要可配置代理
+	// 	Timeout:     60, // 请求超时（单位：秒）
+	// 	PricingPlan: "free",
+	// 	Prompt:      "", // 初始为空，后续会动态设置
+	// }
+
+	// // 初始化 LLMProvider，设置缓存 TTL 为 5 分钟，token 价格为 0.02 美元/千个 token
+	// cacheTTL := 5 * time.Minute
+	// tokenPrice := 0.02
+	// llmProviderInstance := llmProvider.NewLLMProvider(llmParams, cacheTTL, tokenPrice)
+
+	// // 调用 AnalyzePerformanceAndGetResponse 函数
+	// AIanalysisContentJson, tokenCost, err := llmProviderInstance.AnalyzePerformanceAndGetResponse(stats, llmParams)
+	// if err != nil {
+	// 	fmt.Printf("调用 LLM API 时发生错误: %v", err)
+	// }
+
+	// // 打印响应数据和 token 花费
+	// fmt.Printf("LLM 响应:\n%v\n", AIanalysisContentJson)
+	// fmt.Println("===========================================")
+	// printFields(AIanalysisContentJson)
+	// fmt.Println("===========================================")
+	// fmt.Printf("Token 花费: $%.4f\n", tokenCost)
+
+	// // 提取 SystemPerformance 和 Risk 字段
+	// systemPerformance, risk, nextPlan, err := extractSystemPerformanceAndRisk(AIanalysisContentJson)
+	// if err != nil {
+	// 	fmt.Printf("AI分析数据时发生错误: %v\n，将使用默认分析", err)
+	// }
+
+	// // 分析部分
+	builder.WriteString("<section class='analysis concept-card'>")
+	builder.WriteString("<h2><span class='analysis-icon'>📝</span>分析</h2>")
+	// // builder.WriteString("<p>" + analysisContent + "</p>")
+	// fmt.Println("systemPerformance:", systemPerformance)
+	// fmt.Println("risk:", risk)
+	// builder.WriteString("<p>" + systemPerformance + "</p>")
+	// builder.WriteString("<p>" + risk + "</p>")
+	// builder.WriteString("<p>" + nextPlan + "</p>")
+
+	if useLLMProvider {
+		// LLMRequestParams 配置
+		llmParams := llmProvider.LLMRequestParams{
+			APIType:     "kimi",
+			BaseURL:     "https://api.moonshot.cn/v1/chat",
+			APIKey:      "sk-UyI3Y5zBNDNuyZ83ql6QIrQwLfwO2GYgh0s13hTBY8Fcn5ae", // 请替换为实际的 API Key
+			Model:       "kimi 8k",
+			Proxy:       "", // 如有需要可配置代理
+			Timeout:     60, // 请求超时（单位：秒）
+			PricingPlan: "free",
+			Prompt:      "", // 初始为空，后续会动态设置
+		}
+
+		// 初始化 LLMProvider，设置缓存 TTL 为 5 分钟，token 价格为 0.02 美元/千个 token
+		cacheTTL := 5 * time.Minute
+		tokenPrice := 0.02
+		llmProviderInstance := llmProvider.NewLLMProvider(llmParams, cacheTTL, tokenPrice)
+
+		// 调用 AnalyzePerformanceAndGetResponse 函数
+		AIanalysisContentJson, tokenCost, err := llmProviderInstance.AnalyzePerformanceAndGetResponse(stats, llmParams)
+		if err != nil {
+			fmt.Printf("调用 LLM API 时发生错误: %v", err)
+		}
+
+		// 打印响应数据和 token 花费
+		fmt.Printf("LLM 响应:\n%v\n", AIanalysisContentJson)
+		fmt.Println("===========================================")
+		printFields(AIanalysisContentJson)
+		fmt.Println("===========================================")
+		fmt.Printf("Token 花费: $%.4f\n", tokenCost)
+
+		// 提取 SystemPerformance 和 Risk 字段
+		systemPerformance, risk, nextPlan, err := extractSystemPerformanceAndRisk(AIanalysisContentJson)
+		if err != nil {
+			fmt.Printf("AI分析数据时发生错误: %v\n，将使用默认分析", err)
+		}
+
+		builder.WriteString("<p>&nbsp;&nbsp;&nbsp;&nbsp;" + systemPerformance + "</p>")
+		builder.WriteString("<p>&nbsp;&nbsp;&nbsp;&nbsp;" + risk + "</p>")
+		builder.WriteString("<p>&nbsp;&nbsp;&nbsp;&nbsp;" + nextPlan + "</p>")
+	} else {
+		analysisContent := generateDefaultAnalysis(stats)
+		builder.WriteString("<p>&nbsp;&nbsp;&nbsp;&nbsp;" + analysisContent + "</p>")
+	}
+
 	builder.WriteString("</section>")
 
-	builder.WriteString("<section class='analysis'>")
-	builder.WriteString("<h2>参考标准</h2>")
+	builder.WriteString("<section class='reference-standards concept-card'>")
+	builder.WriteString("<h2><span class='reference-icon'>📘</span>参考标准</h2>")
 	builder.WriteString("<p>参考标准：高频接口平均响应时应小于 1 秒，普通接口平均响应时间应低于 2.5 秒，请求成功率应大于 99%。</p>")
 	builder.WriteString("</section>")
 
@@ -398,21 +600,27 @@ table td {
 }
 
 .reference-standards {
-    font-family: Arial, sans-serif;
-    font-size: 16px;
-    line-height: 1.6;
+    padding: 20px;
+    margin: 20px 0;
+    background-color: #f9f9f9;
+    border-left: 5px solid #28a745;
+    border-radius: 5px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
-
 .reference-standards h2 {
-    font-size: 24px;
-    font-weight: bold;
+    color: #28a745;
+    font-size: 1.5em;
     margin-bottom: 10px;
 }
-
-.reference-standards h3 {
-    font-size: 20px;
-    font-weight: bold;
-    margin-top: 20px;
+.reference-standards p {
+    line-height: 1.8;
+    font-size: 1.1em;
+    color: #333;
+}
+.reference-icon {
+    font-size: 1.5em;
+    color: #28a745;
+    margin-right: 10px;
 }
 
 .concept-card {
@@ -438,19 +646,39 @@ table td {
 .concept-card strong {
     color: #333; /* 加粗的文字颜色 */
 }
-
+.section-icon {
+	font-size: 1.5em;
+	margin-right: 10px;
+}
+.report-summary h2 .section-icon { color: #17a2b8; } /* 测试概览 */
+.test-statistics h2 .section-icon { color: #ffc107; } /* 测试统计数据 */
+.charts h2 .section-icon { color: #007bff; } /* 视图展示 */
 /* Analysis Section */
 .analysis {
     margin-top: 30px;
     background-color: #f9f9f9;
     padding: 20px;
     border-radius: 10px;
+	border-left: 5px solid #007BFF;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.analysis h2 {
+    color: #007BFF;
+    font-size: 1.5em;
+    margin-bottom: 10px;
 }
 
 .analysis p {
     font-size: 18px;
     color: #666;
+}
+
+.analysis-icon {
+	font-size: 1.5em;
+	color: #007BFF;
+	margin-right: 10px;
 }
 
 /* Responsive Design */

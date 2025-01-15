@@ -33,8 +33,16 @@ func (c *Collector) SaveReportToFile(stats map[string]interface{}, customName ..
 
 	// 创建 static 目录
 	staticDirPath := filepath.Join(dir, "/static/")
-	fmt.Println(staticDirPath)
+	// fmt.Println(staticDirPath)
 	err = os.MkdirAll(staticDirPath, 0777)
+	if err != nil {
+		return "", fmt.Errorf("failed to create static directory: %v", err)
+	}
+
+	// 创建 static 目录
+	staticAssetsDirPath := filepath.Join(dir, "/static/assets")
+	// fmt.Println(staticAssetsDirPath)
+	err = os.MkdirAll(staticAssetsDirPath, 0777)
 	if err != nil {
 		return "", fmt.Errorf("failed to create static directory: %v", err)
 	}
@@ -181,7 +189,7 @@ func (c *Collector) SaveReportToFile(stats map[string]interface{}, customName ..
 	}()
 
 	// 生成HTML报告
-	reportContent := GenerateHTMLReport(stats, name)
+	reportContent := GenerateHTMLReport(stats, false, name)
 
 	// 创建HTML文件
 	file, err := os.Create(htmlFilePath)
@@ -208,6 +216,14 @@ func (c *Collector) SaveReportToFile(stats map[string]interface{}, customName ..
 	jsFilePath := filepath.Join(staticDirPath, "script.js")
 	jsContent := generateScript() // 调用生成JS的函数
 	err = os.WriteFile(jsFilePath, []byte(jsContent), 0644)
+	if err != nil {
+		return "", fmt.Errorf("failed to write JavaScript file: %v", err)
+	}
+
+	// 生成并保存 echarts.min.js
+	echartsMinJsFilePath := filepath.Join(staticAssetsDirPath, "echarts.min.js")
+	echartsMinJsContent := generateEchartsMinJs() // 调用生成JS的函数
+	err = os.WriteFile(echartsMinJsFilePath, []byte(echartsMinJsContent), 0644)
 	if err != nil {
 		return "", fmt.Errorf("failed to write JavaScript file: %v", err)
 	}

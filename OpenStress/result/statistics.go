@@ -233,6 +233,7 @@ func (c *Collector) GeneratePerformanceStats(results []ResultData) (map[string]i
 	// 计算每秒事务数（TPS），基于 CalculateTPS 的结果
 	var tps float64
 	totalRunTime := time.Duration(lastTimestamp-firstTimestamp) * time.Millisecond
+
 	if totalRunTime.Seconds() > 0 {
 		tps = float64(totalRequests) / totalRunTime.Seconds()
 	}
@@ -305,7 +306,7 @@ func convertToIntArray(floatArray []float64) []int {
 	for _, value := range floatArray {
 		intArray = append(intArray, int(value/1000))
 	}
-	fmt.Println(intArray)
+	// fmt.Println(intArray)
 	return intArray
 }
 
