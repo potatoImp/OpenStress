@@ -80,7 +80,7 @@ var defaultConfig = LLMDetails{
 }
 
 // ReadConfig 读取并解析配置文件
-func ReadConfig(customDir ...string) (*LLMConfig, error) {
+func ReadLLMConfig(customDir ...string) (*LLMConfig, error) {
 	logger, err := pool.GetLogger()
 	if err != nil {
 		fmt.Println("Error getting logger:", err.Error())

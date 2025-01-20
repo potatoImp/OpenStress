@@ -6,9 +6,7 @@ import (
 
 	"OpenStress/tests"
 	"fmt"
-
 	// "OpenStress/result"
-	"OpenStress/configs"
 )
 
 var logger *pool.StressLogger
@@ -26,14 +24,6 @@ func main() {
 	}
 	defer logger.Close() // 确保在程序结束时关闭日志记录器
 
-	// 读取配置
-	config, err := configs.ReadConfig()
-	if err != nil {
-		fmt.Sprintf("Error reading config: %v", err)
-	}
-
-	// 打印配置内容以验证
-	fmt.Printf("Loaded LLM Config: %+v\n", config)
 	// // 创建一个新的任务池
 	// taskPool := pool.NewPool(5) // 假设最大工作线程数为 5
 	// defer taskPool.Shutdown()   // 确保在退出时优雅地关闭任务池

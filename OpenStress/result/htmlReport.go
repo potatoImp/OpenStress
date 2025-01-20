@@ -6,6 +6,7 @@ import (
 
 	"encoding/json"
 
+	"OpenStress/configs"
 	"OpenStress/internal/llmProvider"
 	"time"
 )
@@ -390,17 +391,35 @@ func GenerateHTMLReport(stats map[string]interface{}, useLLMProvider bool, title
 	// builder.WriteString("<p>" + nextPlan + "</p>")
 
 	if useLLMProvider {
+
+		APIType := configs.GetAPIType()
+		BaseURL := configs.GetBaseURL()
+		APIKey := configs.GetAPIKey()
+		TimeOut := configs.GetTimeout()
+
 		// LLMRequestParams 配置
 		llmParams := llmProvider.LLMRequestParams{
-			APIType:     "kimi",
-			BaseURL:     "https://api.moonshot.cn/v1/chat",
-			APIKey:      "sk-UyI3Y5zBNDNuyZ83ql6QIrQwLfwO2GYgh0s13hTBY8Fcn5ae", // 请替换为实际的 API Key
+			APIType:     APIType,
+			BaseURL:     BaseURL,
+			APIKey:      APIKey,
 			Model:       "kimi 8k",
-			Proxy:       "", // 如有需要可配置代理
-			Timeout:     60, // 请求超时（单位：秒）
+			Proxy:       "",      // 如有需要可配置代理
+			Timeout:     TimeOut, // 请求超时（单位：秒）
 			PricingPlan: "free",
 			Prompt:      "", // 初始为空，后续会动态设置
 		}
+
+		// // LLMRequestParams 配置
+		// llmParams := llmProvider.LLMRequestParams{
+		// 	APIType:     "kimi",
+		// 	BaseURL:     "https://api.moonshot.cn/v1/chat",
+		// 	APIKey:      "sk-UyI3Y5zBNDNuyZ83ql6QIrQwLfwO2GYgh0s13hTBY8Fcn5ae", // 请替换为实际的 API Key
+		// 	Model:       "kimi 8k",
+		// 	Proxy:       "", // 如有需要可配置代理
+		// 	Timeout:     60, // 请求超时（单位：秒）
+		// 	PricingPlan: "free",
+		// 	Prompt:      "", // 初始为空，后续会动态设置
+		// }
 
 		// 初始化 LLMProvider，设置缓存 TTL 为 5 分钟，token 价格为 0.02 美元/千个 token
 		cacheTTL := 5 * time.Minute
