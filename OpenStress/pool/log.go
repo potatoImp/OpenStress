@@ -12,6 +12,19 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
+func Initialize() {
+	// 初始化日志记录器
+	logDir := "./logs/"
+	logFile := "app.log"
+	var err error
+	logger, err = InitializeLogger(logDir, logFile, "MainModule")
+	if err != nil {
+		fmt.Printf("Error initializing logger: %v\n", err)
+		return
+	}
+	defer logger.Close() // 确保在程序结束时关闭日志记录器
+}
+
 // StressLogger 表示一个日志记录器
 type StressLogger struct {
 	logger       *zap.Logger

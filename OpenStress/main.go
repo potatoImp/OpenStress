@@ -11,18 +11,11 @@ import (
 
 var logger *pool.StressLogger
 
-func main() {
+func init() {
+	pool.Initialize()
+}
 
-	// 初始化日志记录器
-	logDir := "./logs/"
-	logFile := "app.log"
-	var err error
-	logger, err = pool.InitializeLogger(logDir, logFile, "MainModule")
-	if err != nil {
-		fmt.Printf("Error initializing logger: %v\n", err)
-		return
-	}
-	defer logger.Close() // 确保在程序结束时关闭日志记录器
+func main() {
 
 	// // 创建一个新的任务池
 	// taskPool := pool.NewPool(5) // 假设最大工作线程数为 5

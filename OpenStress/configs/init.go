@@ -7,9 +7,20 @@ import (
 // 全局配置变量
 var llmInitConfig *LLMConfig
 
-func init() {
+// func init() {
+// 	// 程序启动初始化
+// 	llmInitConfig, llmConfigErr := ReadLLMConfig()
+// 	if llmConfigErr != nil {
+// 		fmt.Println("Failed to load config:", llmConfigErr)
+// 	}
+// 	fmt.Println("Config loaded successfully in init")
+// 	// 打印配置内容以验证
+// 	fmt.Printf("Loaded LLM Config: %+v\n", llmInitConfig)
 
-	// 程序启动初始化让
+// }
+
+func Initialize() {
+	// 程序启动初始化
 	llmInitConfig, llmConfigErr := ReadLLMConfig()
 	if llmConfigErr != nil {
 		fmt.Println("Failed to load config:", llmConfigErr)
@@ -17,7 +28,6 @@ func init() {
 	fmt.Println("Config loaded successfully in init")
 	// 打印配置内容以验证
 	fmt.Printf("Loaded LLM Config: %+v\n", llmInitConfig)
-
 }
 
 // Getter 函数
