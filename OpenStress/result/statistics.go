@@ -99,7 +99,7 @@ func (c *Collector) LoadResultsFromFile() ([]ResultData, error) {
 				continue
 			}
 
-			dataReceived, err := strconv.ParseInt(record[11], 10, 64)
+			dataReceived, err := strconv.ParseInt(record[9], 10, 64)
 			if err != nil {
 				fmt.Printf("failed to parse data received at line %d: %v\n", i+1, err)
 				continue
