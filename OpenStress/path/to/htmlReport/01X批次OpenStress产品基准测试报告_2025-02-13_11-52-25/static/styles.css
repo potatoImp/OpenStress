@@ -1,0 +1,221 @@
+
+/* General Reset */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Arial', sans-serif;
+    background: #f0f4f8;  /* 淡灰蓝色背景 */
+    color: #333;
+    line-height: 1.6;
+    padding: 20px;
+}
+
+/* Container */
+.container {
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    background-color: #fff;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);  /* 卡片阴影 */
+    padding: 20px;
+}
+
+header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+h1 {
+    font-size: 36px;
+    color: #4b6cb7;  /* 亮蓝色 */
+    text-transform: uppercase;
+    font-weight: 700;
+}
+
+/* Section Title */
+h2 {
+    margin-top: 30px;
+    color: #4b6cb7;  /* 亮蓝色 */
+    font-size: 24px;
+    font-weight: 600;
+}
+h3 {
+    margin-top: 30px;
+    font-size: 22px;
+    font-weight: 500;
+	text-align: center;  /* 让文字居中对齐 */
+}
+
+/* Table Styling */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+table th, table td {
+    padding: 12px;
+    text-align: left;
+    font-size: 16px;
+}
+
+table th {
+    background: linear-gradient(145deg, #4b6cb7, #9e7dff); /* 渐变背景 */
+    color: white;
+}
+
+table td {
+    background-color: #f9f9f9;
+    border-bottom: 1px solid #e1e1e1;
+}
+
+/* Charts Section */
+.charts {
+    // margin-top: 30px;
+	margin-top: 50px !important; /* 强制设置与上方元素的距离 */
+	width: 100%;
+    height: 100%;
+    border: none;
+}
+
+.tps-chart {
+    width: 100%;    /* 使iframe自适应容器宽度 */
+    height: 550px;  /* 设置默认高度 */
+    background: #fff;
+    border: 2px solid #4b6cb7; /* 亮蓝色边框 */
+    border-radius: 12px;  /* 圆角边框 */
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1); /* 添加阴影效果 */
+    display: block; /* 让iframe成为块级元素，便于控制 */
+    margin-left: auto;
+    margin-right: auto;
+    overflow: hidden;  /* 禁止iframe本身滚动 */
+}
+
+/* iframe内的滚动条 */
+.tps-chart::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;  /* 水平方向上的滚动条 */
+}
+
+.tps-chart::-webkit-scrollbar-thumb {
+    background: #4b6cb7;  /* 滚动条颜色 */
+    border-radius: 10px;
+}
+
+.tps-chart::-webkit-scrollbar-track {
+    background: #f0f4f8;  /* 滚动条轨道背景 */
+    border-radius: 10px;
+}
+
+.reference-standards {
+    padding: 20px;
+    margin: 20px 0;
+    background-color: #f9f9f9;
+    border-left: 5px solid #28a745;
+    border-radius: 5px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+.reference-standards h2 {
+    color: #28a745;
+    font-size: 1.5em;
+    margin-bottom: 10px;
+}
+.reference-standards p {
+    line-height: 1.8;
+    font-size: 1.1em;
+    color: #333;
+}
+.reference-icon {
+    font-size: 1.5em;
+    color: #28a745;
+    margin-right: 10px;
+}
+
+.concept-card {
+    background-color: #f5f5f5; /* 浅灰色背景 */
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
+    color: #6c757d; /* 浅灰色字体 */
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1); /* 添加阴影效果 */
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.concept-card:hover {
+    transform: translateY(-5px); /* 悬浮时上移 */
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2); /* 增强阴影效果 */
+}
+
+.concept-card p {
+    margin: 0;
+    font-size: 14px;
+}
+
+.concept-card strong {
+    color: #333; /* 加粗的文字颜色 */
+}
+.section-icon {
+	font-size: 1.5em;
+	margin-right: 10px;
+}
+.report-summary h2 .section-icon { color: #17a2b8; } /* 测试概览 */
+.test-statistics h2 .section-icon { color: #ffc107; } /* 测试统计数据 */
+.charts h2 .section-icon { color: #007bff; } /* 视图展示 */
+/* Analysis Section */
+.analysis {
+    margin-top: 30px;
+    background-color: #f9f9f9;
+    padding: 20px;
+    border-radius: 10px;
+	border-left: 5px solid #007BFF;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.analysis h2 {
+    color: #007BFF;
+    font-size: 1.5em;
+    margin-bottom: 10px;
+}
+
+.analysis p {
+    font-size: 18px;
+    color: #666;
+}
+
+.analysis-icon {
+	font-size: 1.5em;
+	color: #007BFF;
+	margin-right: 10px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .container {
+        padding: 10px;
+    }
+
+    h1 {
+        font-size: 28px;
+    }
+
+    h2 {
+        font-size: 20px;
+    }
+
+    table th, table td {
+        font-size: 14px;
+    }
+
+    .tps-chart {
+        height: 500px;  /* 在小屏幕上适当调整iframe的高度 */
+    }
+}

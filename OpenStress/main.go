@@ -4,7 +4,7 @@ import (
 	"OpenStress/pool"
 	// "time"
 
-	"OpenStress/tests"
+	"OpenStress/testTasks"
 	"fmt"
 	// "OpenStress/result"
 )
@@ -13,6 +13,7 @@ var logger *pool.StressLogger
 
 func init() {
 	pool.Initialize()
+	testTasks.Initialize()
 }
 
 func main() {
@@ -70,7 +71,7 @@ func main() {
 
 	// pool 模块测试方法
 	// tests.TestTask_AD()
-	tests.TestTaskPool1()
+	// tests.TestTaskPool1()
 
 	// 这里可以添加更多的逻辑来使用 config
 	// 例如，您可以根据配置初始化 LLM 提供者等
