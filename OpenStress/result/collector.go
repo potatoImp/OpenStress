@@ -67,8 +67,28 @@ type CollectorConfig struct {
 	TaskID          string // 任务ID，用于生成唯一的文件名
 }
 
+// 添加包级别的全局变量
+var (
+	instance *Collector
+	once     sync.Once
+)
+
+// GetCollector 获取全局唯一的收集器实例
+func GetCollector(config CollectorConfig) (*Collector, error) {
+	var err error
+	once.Do(func() {
+		instance, err = newCollector(config)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return instance, nil
+}
+
 // NewCollector 创建新的结果收集器
-func NewCollector(config CollectorConfig) (*Collector, error) {
+
+// NewCollector 创建新的结果收集器
+func newCollector(config CollectorConfig) (*Collector, error) {
 	if config.BatchSize <= 0 {
 		config.BatchSize = 100 // 默认批量大小
 	}

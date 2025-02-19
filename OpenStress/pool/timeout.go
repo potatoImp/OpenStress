@@ -38,10 +38,10 @@ type TimeoutManager struct {
 
 // NewTimeoutManager 创建新的 TimeoutManager 实例
 func NewTimeoutManager(timeout time.Duration, retryCount int, retryInterval time.Duration) (*TimeoutManager, error) {
-	logger, logErr := InitializeLogger("logs/", "timeout.log", "TimeoutModule")
-	if logErr != nil {
-		return nil, logErr
-	}
+	// logger, logErr := InitializeLogger("logs/", "timeout.log", "TimeoutModule")
+	// if logErr != nil {
+	// 	return nil, logErr
+	// }
 	return &TimeoutManager{
 		Timeout:       timeout,
 		RetryCount:    retryCount,

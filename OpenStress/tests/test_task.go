@@ -26,7 +26,9 @@ func TestTaskPool1() {
 		CollectInterval: 5,
 		TaskID:          "testTask",
 	}
-	collector, err := result.NewCollector(collectorConfig)
+	// collector, err := result.NewCollector(collectorConfig)
+	collector, err := result.GetCollector(collectorConfig)
+
 	if err != nil {
 		stressLogger.Log("ERROR", "Failed to create collector: "+err.Error())
 	}

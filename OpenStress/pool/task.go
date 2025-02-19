@@ -170,7 +170,7 @@ var logger *StressLogger
 // InitLogger 初始化日志记录器
 func InitLogger(logDir, logFile string) error {
 	var err error
-	logger, err = InitializeLogger(logDir, logFile, "TaskModule")
+	// logger, err = InitializeLogger(logDir, logFile, "TaskModule", "INFO")
 	return err
 }
 
