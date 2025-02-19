@@ -67,14 +67,14 @@ func (testTask *task) TaskPool() {
 	}
 
 	// 提交高优先级任务
-	for i := 1; i <= 100000; i++ {
+	for i := 1; i <= 1000000; i++ {
 		taskID := fmt.Sprintf("请求resources-8080-%d", i)
 		taskPool.Submit(highPriorityTask, 3, taskID, 1*time.Second) // 高优先级
 	}
 
 	stressLogger.Log("INFO", "测试任务开始执行")
 	// 启动任务池
-	taskPool.StartByDuration()
+	taskPool.Start()
 	// taskPool.StartByDuration()
 	// 每500毫秒检查一次任务状态
 	// taskPool.WaitForTasksComplete(500 * time.Millisecond)
