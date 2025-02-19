@@ -209,6 +209,43 @@ func (p *Pool) Submit(fn func(threadID int32), priority int, taskID string, time
 	stressLogger.Log("INFO", fmt.Sprintf("Task %s submitted successfully", taskID))
 }
 
+// Submit adds a new task to the pool.
+func (p *Pool) Submit2(fn func(threadID int32), priority int, taskID string, timeout time.Duration) {
+	stressLogger.Log("INFO", fmt.Sprintf("Submitting task %s with priority %d", taskID, priority))
+	// p.taskWaitGroup.Add(1) // 提交任务时增加计数
+
+	// Get a unique ThreadID for the current task, limiting it to maxWorkers
+	threadID := atomic.AddInt32(&p.threadIDCounter, 1) % p.maxWorkers
+
+	task := &Task{
+		ID:         taskID,
+		fn:         func() { fn(threadID) }, // Pass the threadID to the task function
+		priority:   priority,
+		retries:    0, // Default retries
+		maxRetries: 1, // Maximum retries
+		timeout:    timeout,
+	}
+
+	// Submit task to ants pool with panic recovery
+	err := p.taskPool.Submit(func() {
+		// 使用 defer 和 recover 捕获 panic 错误
+
+		defer func() {
+			if r := recover(); r != nil {
+				stressLogger.Log("ERROR", fmt.Sprintf("Task %s panicked: %v", taskID, r))
+			}
+		}()
+
+		// 执行任务
+		task.fn()
+		// defer p.taskWaitGroup.Done() // 任务完成时减少计数
+	})
+	if err != nil {
+		stressLogger.Log("ERROR", fmt.Sprintf("Failed to submit task %s: %v", taskID, err))
+	}
+	stressLogger.Log("INFO", fmt.Sprintf("Task %s submitted successfully", taskID))
+}
+
 // Shutdown gracefully stops the pool and waits for all tasks to complete.
 func (p *Pool) Shutdown() {
 	stressLogger.Log("INFO", "Shutting down the pool")

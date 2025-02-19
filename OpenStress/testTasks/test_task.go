@@ -74,10 +74,10 @@ func (testTask *task) TaskPool() {
 
 	stressLogger.Log("INFO", "测试任务开始执行")
 	// 启动任务池
-	// taskPool.Start()
+	taskPool.Start()
 	// taskPool.StartByDuration()
 	// 每500毫秒检查一次任务状态
-	taskPool.WaitForTasksComplete(500 * time.Millisecond)
+	// taskPool.WaitForTasksComplete(500 * time.Millisecond)
 	// 关闭任务池
 	taskPool.Shutdown()
 
