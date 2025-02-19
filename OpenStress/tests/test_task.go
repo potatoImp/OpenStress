@@ -12,17 +12,17 @@ import (
 
 // TestTaskPool 测试任务池的功能
 func TestTaskPool1() {
-	maxWorkers := 1000
+	maxWorkers := 100
 	taskPool := pool.NewPool(maxWorkers)
 
 	stressLogger, _ := pool.GetLogger()
 	// result 模块测试方法
 	collectorConfig := result.CollectorConfig{
-		BatchSize:       10000,
+		BatchSize:       10,
 		OutputFormat:    "jtl",
 		JTLFilePath:     "path/to/jtl/file.jtl",
 		Logger:          stressLogger,
-		NumGoroutines:   10,
+		NumGoroutines:   2,
 		CollectInterval: 5,
 		TaskID:          "testTask",
 	}
@@ -35,7 +35,6 @@ func TestTaskPool1() {
 	// 定义高优先级任务
 	highPriorityTask := func(threadID int32) {
 		time.Sleep(1 * time.Second) // 模拟任务执行时间
-		startTime := time.Now()
 
 		// resp, err := http.Get("http://10.10.27.111:8089/index.html")
 		// if err != nil {
@@ -49,7 +48,7 @@ func TestTaskPool1() {
 				ID:           "test1",
 				Type:         result.Failure,
 				ResponseTime: 0,
-				StartTime:    startTime,
+				StartTime:    time.Now(),
 				EndTime:      time.Now().Add(120 * time.Millisecond),
 				StatusCode:   404,
 				Method:       "GET",
@@ -67,7 +66,7 @@ func TestTaskPool1() {
 			ID:           "test1",
 			Type:         result.Success,
 			ResponseTime: 0,
-			StartTime:    startTime,
+			StartTime:    time.Now(),
 			EndTime:      time.Now().Add(120 * time.Millisecond),
 			StatusCode:   200,
 			Method:       "GET",
@@ -81,7 +80,7 @@ func TestTaskPool1() {
 			ID:           "test1",
 			Type:         result.Failure,
 			ResponseTime: 2 * time.Millisecond,
-			StartTime:    startTime,
+			StartTime:    time.Now(),
 			EndTime:      time.Now().Add(120 * time.Millisecond),
 			StatusCode:   404,
 			Method:       "GET",
@@ -107,7 +106,7 @@ func TestTaskPool1() {
 	}
 
 	// 提交高优先级任务
-	for i := 1; i <= 3000; i++ {
+	for i := 1; i <= 100; i++ {
 		taskID := fmt.Sprintf("请求resources-8080-%d", i)
 		taskPool.Submit(highPriorityTask, 3, taskID, 1*time.Second) // 高优先级
 	}

@@ -12,6 +12,19 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
+func Initialize() {
+	// 初始化日志记录器
+	logDir := "./logs/"
+	logFile := "app.log"
+	var err error
+	logger, err = InitializeLogger(logDir, logFile, "MainModule")
+	if err != nil {
+		fmt.Printf("Error initializing logger: %v\n", err)
+		return
+	}
+	defer logger.Close() // 确保在程序结束时关闭日志记录器
+}
+
 // StressLogger 表示一个日志记录器
 type StressLogger struct {
 	logger       *zap.Logger
@@ -38,7 +51,6 @@ var DefaultLogLevel zapcore.Level = zap.InfoLevel
 
 // This function is now only responsible for starting the logger if not already started
 func GetLogger() (*StressLogger, error) {
-
 	if globalLogger == nil {
 		return nil, fmt.Errorf("logger not initialized")
 	}
@@ -48,7 +60,7 @@ func GetLogger() (*StressLogger, error) {
 var once sync.Once
 
 // InitializeLogger 创建并初始化日志记录器
-func InitializeLogger(logDir, logFile, moduleName string, LEVEL string, MaxSize int, MaxAge int) (*StressLogger, error) {
+func InitializeLogger(logDir, logFile, moduleName string) (*StressLogger, error) {
 	var err error
 	once.Do(func() {
 		if globalLogger != nil {
@@ -62,9 +74,9 @@ func InitializeLogger(logDir, logFile, moduleName string, LEVEL string, MaxSize 
 
 		fileWriter := &lumberjack.Logger{
 			Filename:   logDir + logFile,
-			MaxSize:    MaxSize,
+			MaxSize:    10,
 			MaxBackups: 3,
-			MaxAge:     MaxAge,
+			MaxAge:     28,
 			Compress:   true,
 		}
 
@@ -73,26 +85,11 @@ func InitializeLogger(logDir, logFile, moduleName string, LEVEL string, MaxSize 
 		encoderConfig.EncodeCaller = zapcore.FullCallerEncoder
 		encoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
 
-		// Convert LEVEL string to zapcore.Level
-		var logLevel zapcore.Level
-		switch LEVEL {
-		case "DEBUG":
-			logLevel = zap.DebugLevel
-		case "INFO":
-			logLevel = zap.InfoLevel
-		case "WARN":
-			logLevel = zap.WarnLevel
-		case "ERROR":
-			logLevel = zap.ErrorLevel
-		default:
-			logLevel = DefaultLogLevel // Use default if LEVEL is invalid
-		}
-
 		core := zapcore.NewCore(
 			zapcore.NewJSONEncoder(encoderConfig),
 			// Write only to file
 			zapcore.AddSync(fileWriter),
-			logLevel, // Use the specified log level
+			DefaultLogLevel, // Use the global default level
 		)
 
 		logger := zap.New(core)
@@ -103,7 +100,7 @@ func InitializeLogger(logDir, logFile, moduleName string, LEVEL string, MaxSize 
 			module:       moduleName,
 			file:         fileWriter,
 			closed:       false,
-			currentLevel: logLevel,
+			currentLevel: DefaultLogLevel,
 		}
 
 		// Start the logger's asynchronous processing
@@ -165,8 +162,8 @@ func (l *StressLogger) start() {
 		for logMsg := range l.logChan {
 			logs = append(logs, *logMsg)
 
-			// Process logs when there are 10000 or more
-			if len(logs) >= 10000 {
+			// Process logs when there are 10 or more
+			if len(logs) >= 10 {
 				l.flushLogs(logs)
 				logs = nil
 			}

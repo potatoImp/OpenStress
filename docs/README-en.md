@@ -1,6 +1,6 @@
-[English](./docs/README-en.md) |
-[中文](./docs/README-zh.md) |
-[日本語](./docs/README-ja.md)
+[English](./README-en.md) |
+[中文](./README-zh.md) |
+[日本語](./README-ja.md)
 
 <div align="center">
   <h1>OpenStress</h1>

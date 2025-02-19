@@ -94,6 +94,60 @@ func (c *Collector) GenerateSummaryReport(results []ResultData) string {
 	return report
 }
 
+// 提取 SystemPerformance 和 Risk 字段的函数
+func extractSystemPerformanceAndRisk(data map[string]interface{}) (string, string, string, error) {
+	// 1. 获取 choices 中的第一个元素
+	choices, ok := data["choices"].([]interface{})
+	if !ok || len(choices) == 0 {
+		return "", "", "", fmt.Errorf("无法获取 choices 数据")
+	}
+
+	// 2. 获取第一个元素中的 message.content 字段
+	choice, ok := choices[0].(map[string]interface{})
+	if !ok {
+		return "", "", "", fmt.Errorf("无法获取 choice 数据")
+	}
+
+	message, ok := choice["message"].(map[string]interface{})
+	if !ok {
+		return "", "", "", fmt.Errorf("无法获取 message 数据")
+	}
+
+	content, ok := message["content"].(string)
+	if !ok {
+		return "", "", "", fmt.Errorf("无法获取 content 字段")
+	}
+
+	// 3. 去掉 content 中的 ```json 和 ```, 清理字符串
+	content = strings.TrimPrefix(content, "```json\n")
+	content = strings.TrimSuffix(content, "```")
+
+	// 4. 将 content 字段中的 JSON 字符串解析为新的 map
+	var analysisData map[string]interface{}
+	err := json.Unmarshal([]byte(content), &analysisData)
+	if err != nil {
+		return "", "", "", fmt.Errorf("无法解析 content 中的 JSON 数据: %w", err)
+	}
+
+	// 5. 提取 SystemPerformance 和 Risk 字段
+	systemPerformance, ok := analysisData["SystemPerformance"].(string)
+	if !ok {
+		systemPerformance = "未能获取系统性能分析"
+	}
+
+	risk, ok := analysisData["Risk"].(string)
+	if !ok {
+		risk = "未能获取风险分析"
+	}
+
+	nextPlan, ok := analysisData["NextPlan"].(string)
+	if !ok {
+		nextPlan = "未能获取下一步计划建议"
+	}
+
+	return systemPerformance, risk, nextPlan, nil
+}
+
 // 打印所有字段的函数
 func printFields(data map[string]interface{}) {
 	// 打印根字段 choices
@@ -198,9 +252,9 @@ func GenerateHTMLReport(stats map[string]interface{}, useLLMProvider bool, title
 	// 更新CSS和JS文件路径
 	builder.WriteString("<link rel='stylesheet' href='static/styles.css'>")
 	builder.WriteString("<style>")
-	// builder.WriteString(".error {color: red; font-weight: bold;}")      // 错误字段样式
-	// builder.WriteString(".warning {color: orange; font-weight: bold;}") // 警告字段样式
-	builder.WriteString(".chart {height: auto; min-height: 400px;}") // 添加自动高度，最小高度 400px
+	builder.WriteString(".error {color: red; font-weight: bold;}")      // 错误字段样式
+	builder.WriteString(".warning {color: orange; font-weight: bold;}") // 警告字段样式
+	builder.WriteString(".chart {height: auto; min-height: 400px;}")    // 添加自动高度，最小高度 400px
 	builder.WriteString("</style>")
 	builder.WriteString("<script src='https://cdn.jsdelivr.net/npm/chart.js'></script>") // 引入Chart.js库
 	builder.WriteString("</head>")
@@ -328,7 +382,7 @@ func GenerateHTMLReport(stats map[string]interface{}, useLLMProvider bool, title
 
 	// // 分析部分
 	builder.WriteString("<section class='analysis concept-card'>")
-	builder.WriteString("<h2><span class='analysis-icon'>📝</span>智能分析</h2>")
+	builder.WriteString("<h2><span class='analysis-icon'>📝</span>分析</h2>")
 	// // builder.WriteString("<p>" + analysisContent + "</p>")
 	// fmt.Println("systemPerformance:", systemPerformance)
 	// fmt.Println("risk:", risk)
@@ -338,21 +392,17 @@ func GenerateHTMLReport(stats map[string]interface{}, useLLMProvider bool, title
 
 	if useLLMProvider {
 
-		// reportLlmInitConfig, reportLlmConfigErr := configs.ReadLLMConfig()
-		reportLlmInitConfig, _ := configs.ReadLLMConfig()
-
-		APIType := string(reportLlmInitConfig.LLM.APIType)
-		BaseURL := reportLlmInitConfig.LLM.BaseURL
-		APIKey := reportLlmInitConfig.LLM.APIKey
-		TimeOut := reportLlmInitConfig.LLM.Timeout
-		fmt.Println("BaseURL00000000000000", BaseURL)
+		APIType := configs.GetAPIType()
+		BaseURL := configs.GetBaseURL()
+		APIKey := configs.GetAPIKey()
+		TimeOut := configs.GetTimeout()
 
 		// LLMRequestParams 配置
 		llmParams := llmProvider.LLMRequestParams{
 			APIType:     APIType,
 			BaseURL:     BaseURL,
 			APIKey:      APIKey,
-			Model:       "moonshot-v1-8k",
+			Model:       "kimi 8k",
 			Proxy:       "",      // 如有需要可配置代理
 			Timeout:     TimeOut, // 请求超时（单位：秒）
 			PricingPlan: "free",
@@ -376,7 +426,6 @@ func GenerateHTMLReport(stats map[string]interface{}, useLLMProvider bool, title
 		tokenPrice := 0.02
 		llmProviderInstance := llmProvider.NewLLMProvider(llmParams, cacheTTL, tokenPrice)
 
-		fmt.Println("发送前............")
 		// 调用 AnalyzePerformanceAndGetResponse 函数
 		AIanalysisContentJson, tokenCost, err := llmProviderInstance.AnalyzePerformanceAndGetResponse(stats, llmParams)
 		if err != nil {
@@ -384,26 +433,21 @@ func GenerateHTMLReport(stats map[string]interface{}, useLLMProvider bool, title
 		}
 
 		// 打印响应数据和 token 花费
-		// fmt.Printf("LLM 响应:\n%v\n", AIanalysisContentJson)
-		// fmt.Println("===========================================")
-		// printFields(AIanalysisContentJson)
+		fmt.Printf("LLM 响应:\n%v\n", AIanalysisContentJson)
+		fmt.Println("===========================================")
+		printFields(AIanalysisContentJson)
 		fmt.Println("===========================================")
 		fmt.Printf("Token 花费: $%.4f\n", tokenCost)
 
 		// 提取 SystemPerformance 和 Risk 字段
-		// systemPerformance, risk, nextPlan, err := extractSystemPerformanceAndRisk(AIanalysisContentJson)
-
-		thinkContent, systemPerformance, risk, nextPlan, err := extractPerformanceAnalysis("ollama", AIanalysisContentJson)
+		systemPerformance, risk, nextPlan, err := extractSystemPerformanceAndRisk(AIanalysisContentJson)
 		if err != nil {
 			fmt.Printf("AI分析数据时发生错误: %v\n，将使用默认分析", err)
 		}
-		if thinkContent != "" {
-			builder.WriteString("<think><h3>思考过程</h3>&nbsp;&nbsp;&nbsp;&nbsp;" + thinkContent + "</think>")
-		}
 
-		builder.WriteString("<conclusion><h3>思考结论</h3><p>&nbsp;&nbsp;&nbsp;&nbsp;" + systemPerformance + "</p>")
+		builder.WriteString("<p>&nbsp;&nbsp;&nbsp;&nbsp;" + systemPerformance + "</p>")
 		builder.WriteString("<p>&nbsp;&nbsp;&nbsp;&nbsp;" + risk + "</p>")
-		builder.WriteString("<p>&nbsp;&nbsp;&nbsp;&nbsp;" + nextPlan + "</p></conclusion>")
+		builder.WriteString("<p>&nbsp;&nbsp;&nbsp;&nbsp;" + nextPlan + "</p>")
 	} else {
 		analysisContent := generateDefaultAnalysis(stats)
 		builder.WriteString("<p>&nbsp;&nbsp;&nbsp;&nbsp;" + analysisContent + "</p>")
@@ -504,26 +548,10 @@ h2 {
     font-weight: 600;
 }
 h3 {
-    margin-top: 20px;
+    margin-top: 30px;
     font-size: 22px;
     font-weight: 500;
 	text-align: center;  /* 让文字居中对齐 */
-}
-/* 错误和警告样式 */
-.error {
-    color:rgb(253, 3, 28);
-    background-color: #f8d7da;
-    border-color: #f5c6cb;
-    padding: 8px;
-    font-weight: bold;
-}
-
-.warning {
-    color:rgb(255, 191, 0);
-    background-color: #fff3cd;
-    border-color: #ffeeba;
-    padding: 8px;
-    font-weight: bold;
 }
 
 /* Table Styling */
@@ -545,19 +573,11 @@ table th, table td {
 table th {
     background: linear-gradient(145deg, #4b6cb7, #9e7dff); /* 渐变背景 */
     color: white;
-    border-bottom: 2px solid #ddd; /* 标题行底部边框 */
-	font-weight: 600;
-    text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
 }
 
 table td {
     background-color: #f9f9f9;
-    border-bottom: 1px solid #e1e1e1; /* 数据行底部边框 */
-	#dee2e6;
-}
-
-table tr:nth-child(even) td {
-    background-color: #f1f1f1; /* 偶数行背景色 */
+    border-bottom: 1px solid #e1e1e1;
 }
 
 /* Charts Section */
@@ -605,11 +625,9 @@ table tr:nth-child(even) td {
     border-left: 5px solid #28a745;
     border-radius: 5px;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-	background-color: #e8f5e9;
-    border-left: 5px solid #4caf50;
 }
 .reference-standards h2 {
-    color: #1b5e20;
+    color: #28a745;
     font-size: 1.5em;
     margin-bottom: 10px;
 }
@@ -680,27 +698,6 @@ table tr:nth-child(even) td {
 	font-size: 1.5em;
 	color: #007BFF;
 	margin-right: 10px;
-}
-
-.analysis think{
-    display: block;
-    background-color: #e8f4fc; /* 浅蓝色背景 */
-    padding: 15px;
-    margin-top: 10px;
-    border-left: 5px solid #007BFF; /* 蓝色边框 */
-    font-style: italic; /* 斜体显示 */
-    color: #333; /* 字体颜色 */
-}
-
-.analysis conclusion{
-    display: block;
-    background-color: #fff3cd; /* 浅黄色背景 */
-    padding: 15px;
-    margin-top: 10px;
-    border-left: 5px solid #ffc107; /* 黄色边框 */
-    font-weight: bold; /* 加粗显示 */
-    color: #856404; /* 深黄色字体颜色 */
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* 添加阴影效果 */
 }
 
 /* Responsive Design */

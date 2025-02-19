@@ -128,7 +128,7 @@ func ReadLLMConfig(customDir ...string) (*LLMConfig, error) {
 	// fmt.Println("Parsed Config Fields:")
 	// fmt.Printf("APIKey: %s\n", config.LLM.APIKey)
 	// fmt.Printf("APIType: %s\n", config.LLM.APIType)
-	fmt.Printf("BaseURL: %s\n", config.LLM.BaseURL)
+	// fmt.Printf("BaseURL: %s\n", config.LLM.BaseURL)
 	// fmt.Printf("MaxToken: %d\n", config.LLM.MaxToken)
 	// fmt.Printf("Temperature: %.2f\n", config.LLM.Temperature)
 	// fmt.Printf("TopP: %.2f\n", config.LLM.TopP)

@@ -2,7 +2,6 @@ package configs
 
 import (
 	"fmt"
-	"time"
 )
 
 // 全局配置变量
@@ -29,7 +28,6 @@ func Initialize() {
 	fmt.Println("Config loaded successfully in init")
 	// 打印配置内容以验证
 	fmt.Printf("Loaded LLM Config: %+v\n", llmInitConfig)
-	time.Sleep(2 * time.Second)
 }
 
 // Getter 函数
@@ -48,7 +46,6 @@ func GetAPIType() string {
 }
 
 func GetBaseURL() string {
-	fmt.Println("3333333333333", llmInitConfig.LLM.BaseURL)
 	if llmInitConfig != nil {
 		return llmInitConfig.LLM.BaseURL
 	}
