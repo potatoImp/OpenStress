@@ -74,12 +74,9 @@ func (p *Pool) StartByDuration() {
 	stressLogger.Log("INFO", fmt.Sprintf("Starting %d worker goroutines...", p.maxWorkers))
 
 	// Initialize workers
-	// for i := 0; i < int(p.maxWorkers); i++ {
-	// 	go p.worker()
-	// }
-	// p.taskPool.Running()
-
-	// p.worker()
+	for i := 0; i < int(p.maxWorkers); i++ {
+		go p.workerForever()
+	}
 
 	stressLogger.Log("INFO", fmt.Sprintf("%d worker goroutines started", p.maxWorkers))
 }
