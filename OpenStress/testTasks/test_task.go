@@ -77,7 +77,9 @@ func (testTask *task) TaskPool() {
 	// taskPool.Start()
 	// taskPool.StartByDuration()
 	// 每500毫秒检查一次任务状态
-	// taskPool.WaitForTasksComplete(500 * time.Millisecond)
+	// 在这里实现一个定时任务，设置对应的时间点后才可以继续往下
+
+	WaitWithSystemMonitor(30) // 等待5分钟，同时监控系统资源
 	// 关闭任务池
 	taskPool.Shutdown()
 
