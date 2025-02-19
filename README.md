@@ -1,4 +1,39 @@
+<<<<<<< Updated upstream
 # OpenStress
+=======
+[English](./README-en.md) |
+[中文](./README-zh.md) |
+[日本語](./README-ja.md)
+
+<div align="center">
+  <h1>OpenStress</h1>
+  <p>A High-Performance Stress Testing Framework in Go</p>
+  
+  <a href="https://github.com/potatoImp/OpenStress/blob/main/LICENSE-CODE">
+    <img alt="Code License" src="https://img.shields.io/badge/Code_License-MIT-f5de53?&color=f5de53"/>
+  </a>
+  <a href="https://github.com/potatoImp/OpenStress/blob/main/LICENSE-MODEL">
+    <img alt="Model License" src="https://img.shields.io/badge/Model_License-Model_Agreement-f5de53?&color=f5de53"/>
+  </a>
+  <a href="https://golang.org/doc/install">
+    <img alt="Go Version" src="https://img.shields.io/badge/Go-%3E%3D%201.16-blue"/>
+  </a>
+  <a href="https://github.com/potatoImp/OpenStress/releases">
+    <img alt="GitHub release" src="https://img.shields.io/github/v/release/potatoImp/OpenStress?color=brightgreen"/>
+  </a>
+</div>
+
+## Table of Contents
+
+1. [Introduction](#introduction)
+2. [Features](#features)
+3. [QuickStart](#quick-started)
+4. [Installation](#Installation)
+5. [License](#license)
+6. [Contact](#contact)
+
+## Introduction
+>>>>>>> Stashed changes
 
 OpenStress is an open-source task management and logging framework designed to simplify the development of concurrent applications in Go. It provides an efficient way to manage tasks and log application events, making it an ideal choice for developers looking to enhance their productivity and maintainability.
 

@@ -10,7 +10,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"time"
 )
 
 // JTLRecord JTL记录结构
@@ -107,7 +106,7 @@ func (c *Collector) writeToJTL(batch []ResultData) error {
 	return nil
 }
 
-// generateJTLFileName 生成JTL文件名
-func generateJTLFileName() string {
-	return fmt.Sprintf("test_result_%s.jtl", time.Now().Format("20060102150405"))
-}
+// // generateJTLFileName 生成JTL文件名
+// func generateJTLFileName() string {
+// 	return fmt.Sprintf("test_result_%s.jtl", time.Now().Format("20060102150405"))
+// }

@@ -167,12 +167,12 @@ type TaskDetail struct {
 // Logger 用于记录日志
 var logger *StressLogger
 
-// InitLogger 初始化日志记录器
-func InitLogger(logDir, logFile string) error {
-	var err error
-	logger, err = InitializeLogger(logDir, logFile, "TaskModule")
-	return err
-}
+// // InitLogger 初始化日志记录器
+// func InitLogger(logDir, logFile string) error {
+// 	var err error
+// 	logger, err = InitializeLogger(logDir, logFile, "TaskModule")
+// 	return err
+// }
 
 // NewTaskDetail 创建新任务
 func NewTaskDetail(id string, execute func() error) (*TaskDetail, error) {

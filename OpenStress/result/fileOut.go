@@ -6,10 +6,22 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
+
+	"OpenStress/configs"
 )
 
 // SaveReportToFile 保存报告到HTML文件
 func (c *Collector) SaveReportToFile(stats map[string]interface{}, customName ...string) (string, error) {
+
+	// 读取配置
+	llmConfig, llmConfigErr := configs.ReadLLMConfig()
+	if llmConfigErr != nil {
+		fmt.Sprintf("Error reading config: %v", llmConfigErr)
+	}
+
+	// 打印配置内容以验证
+	fmt.Printf("Loaded LLM Config: %+v\n", llmConfig)
+
 	// 获取当前日期时间，格式化为 yyyy-MM-dd_HH-mm-ss
 	currentTime := time.Now().Format("2006-01-02_15-04-05")
 
@@ -33,8 +45,16 @@ func (c *Collector) SaveReportToFile(stats map[string]interface{}, customName ..
 
 	// 创建 static 目录
 	staticDirPath := filepath.Join(dir, "/static/")
-	fmt.Println(staticDirPath)
+	// fmt.Println(staticDirPath)
 	err = os.MkdirAll(staticDirPath, 0777)
+	if err != nil {
+		return "", fmt.Errorf("failed to create static directory: %v", err)
+	}
+
+	// 创建 static 目录
+	staticAssetsDirPath := filepath.Join(dir, "/static/assets")
+	// fmt.Println(staticAssetsDirPath)
+	err = os.MkdirAll(staticAssetsDirPath, 0777)
 	if err != nil {
 		return "", fmt.Errorf("failed to create static directory: %v", err)
 	}
@@ -180,8 +200,17 @@ func (c *Collector) SaveReportToFile(stats map[string]interface{}, customName ..
 		}
 	}()
 
+	// isAPIKeyPresent := configs.GetAPIKey() != ""
+
+	// // 根据 APIKey 是否存在来设置第二个参数
+	// reportContent := GenerateHTMLReport(stats, isAPIKeyPresent, name)
+
+	// 获取 BaseDetails
+	baseDetails := configs.GetBaseDetails()
+
 	// 生成HTML报告
-	reportContent := GenerateHTMLReport(stats, name)
+	// reportContent := GenerateHTMLReport(stats, false, name)
+	reportContent := GenerateHTMLReport(stats, baseDetails.AiAnalysis, name)
 
 	// 创建HTML文件
 	file, err := os.Create(htmlFilePath)
@@ -208,6 +237,14 @@ func (c *Collector) SaveReportToFile(stats map[string]interface{}, customName ..
 	jsFilePath := filepath.Join(staticDirPath, "script.js")
 	jsContent := generateScript() // 调用生成JS的函数
 	err = os.WriteFile(jsFilePath, []byte(jsContent), 0644)
+	if err != nil {
+		return "", fmt.Errorf("failed to write JavaScript file: %v", err)
+	}
+
+	// 生成并保存 echarts.min.js
+	echartsMinJsFilePath := filepath.Join(staticAssetsDirPath, "echarts.min.js")
+	echartsMinJsContent := generateEchartsMinJs() // 调用生成JS的函数
+	err = os.WriteFile(echartsMinJsFilePath, []byte(echartsMinJsContent), 0644)
 	if err != nil {
 		return "", fmt.Errorf("failed to write JavaScript file: %v", err)
 	}

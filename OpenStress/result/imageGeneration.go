@@ -122,7 +122,10 @@ func GenerateTpsChartAsync(tpsValues []int, successValues []int, failureValues [
 		Subtitle: fmt.Sprintf("Test Duration: %s to %s", startTimeTime.Format("15:04:05"), endTimeTime.Format("15:04:05")),
 	}), charts.WithLegendOpts(opts.Legend{
 		Bottom: "bottom", // 设置图例的位置，可以是 "top"、"bottom"、"left"、"right"
-	}))
+	}), charts.WithInitializationOpts(opts.Initialization{
+		AssetsHost: "assets/", // 设置本地静态资源路径
+	}),
+	)
 
 	// 获取渲染的 HTML 内容（不需要通过 io.Writer）
 	htmlContent := line.RenderContent()
@@ -221,7 +224,10 @@ func GenerateResponseTimeChartAsync(avgResponseTimeValues []int, avgSuccessRespo
 		Subtitle: fmt.Sprintf("Test Duration: %s to %s", startTimeTime.Format("15:04:05"), endTimeTime.Format("15:04:05")),
 	}), charts.WithLegendOpts(opts.Legend{
 		Bottom: "bottom", // 设置图例的位置，可以是 "top"、"bottom"、"left"、"right"
-	}))
+	}), charts.WithInitializationOpts(opts.Initialization{
+		AssetsHost: "assets/", // 设置本地静态资源路径
+	}),
+	)
 
 	// 获取渲染的 HTML 内容（不需要通过 io.Writer）
 	htmlContent := line.RenderContent()
@@ -301,6 +307,9 @@ func GenerateFlowTrendChartAsync(avgSentTrafficValues []int, avgReceivedTrafficV
 		}),
 		charts.WithLegendOpts(opts.Legend{
 			Bottom: "bottom", // 设置图例位置
+		}),
+		charts.WithInitializationOpts(opts.Initialization{
+			AssetsHost: "assets/", // 设置本地静态资源路径
 		}),
 	)
 
