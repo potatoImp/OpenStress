@@ -67,7 +67,7 @@ func (p *LLMProvider) formatPrompt(stats PerformanceStats) string {
 		"NextPlan": "下一步的计划"
        }
 		以下是性能测试的汇总结果数据，请根据这些数据分析当前系统的表现，并指出可能存在的风险，以及下一步的参考测试方向：
-		
+		性能参考标准：高频接口平均响应时应小于 1 秒，普通接口平均响应时间应低于 2.5 秒，请求成功率应大于 99
 		总请求数: %d
 		成功请求数: %d
 		失败请求数: %d
@@ -149,11 +149,13 @@ func (p *LLMProvider) generateRequestData(prompt string) (map[string]interface{}
 	switch p.Config.APIType {
 	case "kimi":
 		// 针对 kimi 的特殊请求数据结构
-		requestData["model"] = "moonshot-v1-8k"
+		// requestData["model"] = "moonshot-v1-8k"
+		requestData["model"] = "deepseek-r1:1.5b"
+
 		requestData["messages"] = []map[string]interface{}{
 			{
 				"role":    "system",
-				"content": "你是一名专业的性能测试专家，由OponStress提供的智能助手，你更擅长中文和英文的对话。你会为用户提供安全，有帮助，准确的回答。同时，你会拒绝一切涉及恐怖主义，种族歧视，黄色暴力等问题的回答。将根据用户的提问给出专业确定的性能分析结论，不回复模糊的结论",
+				"content": "你是一名专业的性能测试专家，由OponStress提供的智能助手，擅长中文和英文的对话。你会为用户提供安全，有帮助，准确的回答。同时，你会拒绝一切涉及恐怖主义，种族歧视，黄色暴力等问题的回答。将根据用户的提问给出专业确定的性能分析结论，不回复模糊的结论。",
 			},
 			{
 				"role":    "user",
@@ -162,7 +164,7 @@ func (p *LLMProvider) generateRequestData(prompt string) (map[string]interface{}
 		}
 	default:
 		// 其他 API 类型使用默认的请求结构
-		requestData["model"] = p.Config.Model
+		// requestData["model"] = p.Config.Model
 		requestData["prompt"] = prompt
 	}
 
@@ -184,7 +186,10 @@ func (p *LLMProvider) CallLLMAPI(prompt string) (map[string]interface{}, float64
 	}
 
 	// 创建 HTTP 请求
-	req, err := http.NewRequest("POST", p.Config.BaseURL+"/completions", bytes.NewBuffer(requestDataBytes))
+	// req, err := http.NewRequest("POST", p.Config.BaseURL+"/completions", bytes.NewBuffer(requestDataBytes))
+	// req, err := http.NewRequest("POST", "https://api.moonshot.cn/v1/chat/completions", bytes.NewBuffer(requestDataBytes))
+	req, err := http.NewRequest("POST", "http://localhost:11434/v1/chat/completions", bytes.NewBuffer(requestDataBytes))
+
 	if err != nil {
 		return nil, 0, fmt.Errorf("创建 HTTP 请求失败: %w", err)
 	}
@@ -193,11 +198,13 @@ func (p *LLMProvider) CallLLMAPI(prompt string) (map[string]interface{}, float64
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+p.Config.APIKey)
 
+	fmt.Println("999999900000000000", req)
 	// 执行 HTTP 请求
 	client := &http.Client{
 		Timeout: time.Duration(p.Config.Timeout) * time.Second,
 	}
 	resp, err := client.Do(req)
+	fmt.Println("sssssssssss", resp)
 	if err != nil {
 		return nil, 0, fmt.Errorf("发送 HTTP 请求失败: %w", err)
 	}

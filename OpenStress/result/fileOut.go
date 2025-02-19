@@ -205,8 +205,12 @@ func (c *Collector) SaveReportToFile(stats map[string]interface{}, customName ..
 	// // 根据 APIKey 是否存在来设置第二个参数
 	// reportContent := GenerateHTMLReport(stats, isAPIKeyPresent, name)
 
+	// 获取 BaseDetails
+	baseDetails := configs.GetBaseDetails()
+
 	// 生成HTML报告
-	reportContent := GenerateHTMLReport(stats, false, name)
+	// reportContent := GenerateHTMLReport(stats, false, name)
+	reportContent := GenerateHTMLReport(stats, baseDetails.AiAnalysis, name)
 
 	// 创建HTML文件
 	file, err := os.Create(htmlFilePath)
