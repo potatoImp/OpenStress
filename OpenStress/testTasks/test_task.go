@@ -2,7 +2,7 @@ package testTasks
 
 import (
 	"fmt"
-	"net/http"
+	// "net/http"
 
 	"time"
 
@@ -24,31 +24,31 @@ func (testTask *task) TaskPool() {
 		// time.Sleep(1 * time.Second) // 模拟任务执行时间
 		startTime := time.Now()
 
-		resp, err := http.Get("http://10.10.27.111:8089/index.html")
-		if err != nil {
-			// 连接失败时处理错误
-			// fmt.Println("Request failed:", err)
-			return // 可以提前返回，避免执行到 defer 语句
-		}
-		defer resp.Body.Close()
-		if err != nil {
-			collector.SaveFailureResult(result.ResultData{
-				ID:           "test1",
-				Type:         result.Failure,
-				ResponseTime: 0,
-				StartTime:    startTime,
-				EndTime:      time.Now().Add(120 * time.Millisecond),
-				StatusCode:   404,
-				Method:       "GET",
-				URL:          "http://10.10.27.111:8089/index.html",
-				DataSent:     1024,
-				DataReceived: 2048,
-				ThreadID:     int(threadID),
-			})
-			fmt.Printf("请求失败: %v\n", err)
-			return
-		}
-		defer resp.Body.Close()
+		// resp, err := http.Get("http://10.10.27.111:8089/index.html")
+		// if err != nil {
+		// 	// 连接失败时处理错误
+		// 	// fmt.Println("Request failed:", err)
+		// 	return // 可以提前返回，避免执行到 defer 语句
+		// }
+		// defer resp.Body.Close()
+		// if err != nil {
+		// 	collector.SaveFailureResult(result.ResultData{
+		// 		ID:           "test1",
+		// 		Type:         result.Failure,
+		// 		ResponseTime: 0,
+		// 		StartTime:    startTime,
+		// 		EndTime:      time.Now().Add(120 * time.Millisecond),
+		// 		StatusCode:   404,
+		// 		Method:       "GET",
+		// 		URL:          "http://10.10.27.111:8089/index.html",
+		// 		DataSent:     1024,
+		// 		DataReceived: 2048,
+		// 		ThreadID:     int(threadID),
+		// 	})
+		// 	fmt.Printf("请求失败: %v\n", err)
+		// 	return
+		// }
+		// defer resp.Body.Close()
 		// fmt.Printf("请求成功，状态码: %d\n", resp.StatusCode)
 		collector.SaveSuccessResult(result.ResultData{
 			ID:           "test1",
@@ -67,7 +67,7 @@ func (testTask *task) TaskPool() {
 	}
 
 	// 提交高优先级任务
-	for i := 1; i <= 100000; i++ {
+	for i := 1; i <= 100; i++ {
 		taskID := fmt.Sprintf("请求resources-8080-%d", i)
 		taskPool.Submit(highPriorityTask, 3, taskID, 1*time.Second) // 高优先级
 	}

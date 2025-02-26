@@ -33,8 +33,8 @@ type LogEntry struct {
 // Declare a global variable to hold the logger instance
 var globalLogger *StressLogger
 
-// DefaultLogLevel 默认日志级别，初始化为 INFO
-var DefaultLogLevel zapcore.Level = zap.InfoLevel
+// DefaultLogLevel 默认日志级别，初始化为 Error
+var DefaultLogLevel zapcore.Level = zap.ErrorLevel
 
 // This function is now only responsible for starting the logger if not already started
 func GetLogger() (*StressLogger, error) {

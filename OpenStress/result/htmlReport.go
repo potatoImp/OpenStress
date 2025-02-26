@@ -344,21 +344,24 @@ func GenerateHTMLReport(stats map[string]interface{}, useLLMProvider bool, title
 		APIType := string(reportLlmInitConfig.LLM.APIType)
 		BaseURL := reportLlmInitConfig.LLM.BaseURL
 		APIKey := reportLlmInitConfig.LLM.APIKey
+		Model := reportLlmInitConfig.LLM.Model
 		TimeOut := reportLlmInitConfig.LLM.Timeout
 		fmt.Println("BaseURL00000000000000", BaseURL)
+		fmt.Println(APIType)
 
 		// LLMRequestParams 配置
 		llmParams := llmProvider.LLMRequestParams{
 			APIType:     APIType,
 			BaseURL:     BaseURL,
 			APIKey:      APIKey,
-			Model:       "moonshot-v1-8k",
+			Model:       Model,
 			Proxy:       "",      // 如有需要可配置代理
 			Timeout:     TimeOut, // 请求超时（单位：秒）
 			PricingPlan: "free",
 			Prompt:      "", // 初始为空，后续会动态设置
 		}
 
+		fmt.Println("<<<<<<<<<<<<<<<<<<<<<", APIType)
 		// // LLMRequestParams 配置
 		// llmParams := llmProvider.LLMRequestParams{
 		// 	APIType:     "kimi",
@@ -393,7 +396,7 @@ func GenerateHTMLReport(stats map[string]interface{}, useLLMProvider bool, title
 		// 提取 SystemPerformance 和 Risk 字段
 		// systemPerformance, risk, nextPlan, err := extractSystemPerformanceAndRisk(AIanalysisContentJson)
 
-		thinkContent, systemPerformance, risk, nextPlan, err := extractPerformanceAnalysis("ollama", AIanalysisContentJson)
+		thinkContent, systemPerformance, risk, nextPlan, err := extractPerformanceAnalysis(APIType, AIanalysisContentJson)
 		if err != nil {
 			fmt.Printf("AI分析数据时发生错误: %v\n，将使用默认分析", err)
 		}

@@ -29,14 +29,19 @@ type PerformanceStats struct {
 }
 
 type LLMRequestParams struct {
-	APIType     string `json:"api_type"`
-	BaseURL     string `json:"base_url"`
-	APIKey      string `json:"api_key"`
-	Model       string `json:"model"`
-	Proxy       string `json:"proxy"`
-	Timeout     int    `json:"timeout"`
-	PricingPlan string `json:"pricing_plan"`
+	APIType     string `json:"api_type"`     // APIType 指定 LLM 服务提供商类型，如 "openai"、"azure"、"ollama" 等
+	BaseURL     string `json:"base_url"`     // BaseURL LLM API 的基础 URL，如 "https://api.openai.com/v1"
+	APIKey      string `json:"api_key"`      // APIKey 访问 LLM API 的认证密钥
+	Model       string `json:"model"`        // Model 指定使用的模型名称，如 "gpt-4"、"gpt-3.5-turbo" 等
+	Proxy       string `json:"proxy"`        // Proxy 代理服务器地址，用于在需要时通过代理访问 API
+	Timeout     int    `json:"timeout"`      // Timeout API 请求超时时间，单位为秒
+	PricingPlan string `json:"pricing_plan"` // PricingPlan 计费计划名称，主要用于 Azure 等云服务提供商
 	Prompt      string `json:"prompt"`
+
+	AccessKey  string `json:"access_key"`  // AccessKey 访问密钥，用于某些需要额外认证的服务
+	SecretKey  string `json:"secret_key"`  // SecretKey 密钥，配合 AccessKey 使用的密钥
+	Endpoint   string `json:"endpoint"`    // Endpoint 自定义 API 端点地址，用于私有部署或特定区域的服务
+	RegionName string `json:"region_name"` // RegionName 服务区域名称，用于指定云服务的地理区域
 }
 
 type LLMProvider struct {
@@ -138,6 +143,49 @@ type cachedItem struct {
 	expiryTime time.Time
 }
 
+// 设置请求参数 - 新版本，使用生成器模式
+func (p *LLMProvider) generateRequestData2(prompt string) (map[string]interface{}, error) {
+	// 创建基础消息
+	systemMessage := CreateSystemMessage("你是一名专业的性能测试专家，由OponStress提供的智能助手，擅长中文和英文的对话。你会为用户提供安全，有帮助，准确的回答。同时，你会拒绝一切涉及恐怖主义，种族歧视，黄色暴力等问题的回答。将根据用户的提问给出专业确定的性能分析结论，不回复模糊的结论。")
+	userMessage := CreateUserMessage(prompt)
+	messages := []Message{systemMessage, userMessage}
+
+	// 根据 APIType 选择合适的生成器
+	var generator RequestGenerator
+	fmt.Println(p.Config.APIType)
+	switch APIType(p.Config.APIType) {
+	// switch APIType(APITypeKimi) {
+	case APITypeOpenAI:
+		generator = NewOpenAIGenerator()
+	case APITypeAzure:
+		generator = NewAzureGenerator()
+	case APITypeGroq:
+		generator = NewGroqGenerator()
+	case APITypeClaude:
+		generator = NewClaudeGenerator()
+	case APITypeGemini:
+		generator = NewGeminiGenerator()
+	case APITypePaLM:
+		generator = NewPaLMGenerator()
+	case APITypeDeepSeek:
+		generator = NewDeepSeekGenerator()
+	case APITypeOllama:
+		generator = NewOllamaGenerator()
+	case APITypeKimi:
+		generator = NewKimiGenerator()
+	default:
+		generator = NewDeepSeekGenerator()
+	}
+
+	// 使用选定的生成器生成请求数据
+	requestData, err := generator.GenerateRequest(prompt, messages, p.Config)
+	if err != nil {
+		return nil, fmt.Errorf("生成请求数据失败: %w", err)
+	}
+
+	return requestData, nil
+}
+
 // 设置请求参数
 func (p *LLMProvider) generateRequestData(prompt string) (map[string]interface{}, error) {
 	// 基础的请求数据结构
@@ -149,7 +197,22 @@ func (p *LLMProvider) generateRequestData(prompt string) (map[string]interface{}
 	switch p.Config.APIType {
 	case "kimi":
 		// 针对 kimi 的特殊请求数据结构
-		// requestData["model"] = "moonshot-v1-8k"
+		requestData["model"] = "moonshot-v1-8k"
+		// requestData["model"] = "deepseek-r1:1.5b"
+
+		requestData["messages"] = []map[string]interface{}{
+			{
+				"role":    "system",
+				"content": "你是一名专业的性能测试专家，由OponStress提供的智能助手，擅长中文和英文的对话。你会为用户提供安全，有帮助，准确的回答。同时，你会拒绝一切涉及恐怖主义，种族歧视，黄色暴力等问题的回答。将根据用户的提问给出专业确定的性能分析结论，不回复模糊的结论。",
+			},
+			{
+				"role":    "user",
+				"content": prompt, // 将传入的 prompt 填充到此处
+			},
+		}
+	case "ollama":
+		// 针对 ollama 的特殊请求数据结构
+		requestData["model"] = p.Config.Model
 		requestData["model"] = "deepseek-r1:1.5b"
 
 		requestData["messages"] = []map[string]interface{}{
@@ -168,13 +231,14 @@ func (p *LLMProvider) generateRequestData(prompt string) (map[string]interface{}
 		requestData["prompt"] = prompt
 	}
 
+	fmt.Println("generateRequestData返回内容>>>>>>>：, requestData")
 	return requestData, nil
 }
 
 // 调用 LLM API 进行性能分析
 func (p *LLMProvider) CallLLMAPI(prompt string) (map[string]interface{}, float64, error) {
 	// 生成请求数据
-	requestData, err := p.generateRequestData(prompt)
+	requestData, err := p.generateRequestData2(prompt)
 	if err != nil {
 		return nil, 0, fmt.Errorf("请求数据生成失败: %w", err)
 	}
@@ -186,9 +250,9 @@ func (p *LLMProvider) CallLLMAPI(prompt string) (map[string]interface{}, float64
 	}
 
 	// 创建 HTTP 请求
-	// req, err := http.NewRequest("POST", p.Config.BaseURL+"/completions", bytes.NewBuffer(requestDataBytes))
+	req, err := http.NewRequest("POST", p.Config.BaseURL+"/chat/completions", bytes.NewBuffer(requestDataBytes))
 	// req, err := http.NewRequest("POST", "https://api.moonshot.cn/v1/chat/completions", bytes.NewBuffer(requestDataBytes))
-	req, err := http.NewRequest("POST", "http://localhost:11434/v1/chat/completions", bytes.NewBuffer(requestDataBytes))
+	// req, err := http.NewRequest("POST", "http://localhost:11434/v1/chat/completions", bytes.NewBuffer(requestDataBytes))
 
 	if err != nil {
 		return nil, 0, fmt.Errorf("创建 HTTP 请求失败: %w", err)

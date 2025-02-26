@@ -1,0 +1,21 @@
+# Log configuration file
+log:
+  # Directory specifies the directory where log files are stored.
+  # Example: "./logs/"
+  directory: "./logs/"
+  
+  # Filename specifies the name of the log file.
+  # Example: "OpenStress.log"
+  filename: "OpenStress.log"
+  
+  # Level specifies the logging level.
+  # Example: "INFO"
+  level: "INFO"
+  
+  # MaxSize specifies the maximum size in megabytes of the log file before it gets rotated.
+  # Example: 100
+  max_size: 100
+  
+  # MaxAge specifies the maximum number of days to retain old log files.
+  # Example: 28
+  max_age: 28

@@ -1,0 +1,37 @@
+# Base configuration file
+base:
+  # 用户数，协程池数
+  # 默认值: 100
+  users: 10
+  
+  # 任务默认循环次数
+  # 默认值: 1
+  task_default_repeats: 1
+  
+  # 任务间隔，单位为毫秒
+  # 默认值: 1000
+  task_interval: 1000
+  
+  # 定时执行时长，单位为秒
+  # 默认值: 0
+  scheduled_duration: 0
+  
+  # 测试数据格式
+  # 默认值: none
+  test_data_format: none
+  
+  # HTML测试报告
+  # 默认值: false
+  html_test_report: true
+  
+  # AI分析
+  # 默认值: false
+  ai_analysis: true
+  
+  # 知识库链接
+  # 默认值: none
+  knowledge_base_link: none
+  
+  # Web界面
+  # 默认值: false
+  web_interface: false

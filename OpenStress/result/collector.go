@@ -43,17 +43,16 @@ type ResultData struct {
 
 // Collector 结果收集器结构体
 type Collector struct {
-	mu            sync.RWMutex
-	results       []ResultData
-	batchSize     int
-	outputFormat  string
-	jtlFilePath   string
-	dataChan      chan ResultData
-	done          chan struct{}
-	logger        Logger
-	numGoroutines int // 并发 goroutine 数量
-	// 新增配置项：数据收集间隔（秒）
-	collectInterval int
+	mu              sync.RWMutex
+	results         []ResultData
+	batchSize       int
+	outputFormat    string
+	jtlFilePath     string
+	dataChan        chan ResultData
+	done            chan struct{}
+	logger          Logger
+	numGoroutines   int // 并发 goroutine 数量
+	collectInterval int // 新增配置项：数据收集间隔（秒）
 }
 
 // CollectorConfig 收集器配置
@@ -65,6 +64,37 @@ type CollectorConfig struct {
 	NumGoroutines   int    // 并发 goroutine 数量
 	CollectInterval int    // 数据收集间隔（秒）
 	TaskID          string // 任务ID，用于生成唯一的文件名
+}
+
+func (c *Collector) InitializeReport() {
+	// 加载结果数据
+	results, err := c.LoadResultsFromFile()
+	if err != nil {
+		fmt.Printf("Error loading results: %v\n", err)
+		return
+	}
+	// 生成并打印测试报告
+	report := c.GenerateSummaryReport(results)
+	fmt.Println(report)
+	// collector.Close()
+
+	stats, err := c.GeneratePerformanceStats(results)
+	if err != nil {
+		fmt.Println("Error generating stats:", err)
+		return
+	}
+	fmt.Println("Performance Stats:")
+	fmt.Println(stats)
+
+	// 保存HTML报告到文件
+	reportPath, err := c.SaveReportToFile(stats, "01X批次OpenStress产品基准测试报告")
+	if err != nil {
+		fmt.Println("Error saving report:", err)
+		return
+	}
+
+	// 输出生成的报告路径
+	fmt.Printf("测试报告已生成：%s\n", reportPath)
 }
 
 // 添加包级别的全局变量
@@ -84,8 +114,6 @@ func GetCollector(config CollectorConfig) (*Collector, error) {
 	}
 	return instance, nil
 }
-
-// NewCollector 创建新的结果收集器
 
 // NewCollector 创建新的结果收集器
 func newCollector(config CollectorConfig) (*Collector, error) {

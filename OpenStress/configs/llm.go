@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v2"
 )
@@ -43,10 +44,11 @@ type LLMConfig struct {
 }
 
 type LLMDetails struct {
-	APIKey            string  `yaml:"api_key"`
-	APIType           LLMType `yaml:"api_type"`
-	BaseURL           string  `yaml:"base_url"`
-	MaxToken          int     `yaml:"max_token"`
+    APIKey            string  `yaml:"api_key"`
+    APIType           LLMType `yaml:"api_type"`
+    BaseURL           string  `yaml:"base_url"`
+    Model             string  `yaml:"model"`      // 新增 Model 字段
+    MaxToken          int     `yaml:"max_token"`
 	Temperature       float64 `yaml:"temperature"`
 	TopP              float64 `yaml:"top_p"`
 	TopK              int     `yaml:"top_k"`
@@ -61,11 +63,13 @@ type LLMDetails struct {
 }
 
 // 默认配置值
+// 在默认配置中也需要添加 Model 字段的默认值
 var defaultConfig = LLMDetails{
-	APIKey:            "YOUR_API_KEY",
-	APIType:           OPENAI,
-	BaseURL:           "https://api.openai.com/v1",
-	MaxToken:          2048,
+    APIKey:            "YOUR_API_KEY",
+    APIType:           OPENAI,
+    BaseURL:           "https://api.openai.com/v1",
+    Model:             "gpt-3.5-turbo",          // 添加默认的 Model 值
+    MaxToken:          2048,
 	Temperature:       0.7,
 	TopP:              0.9,
 	TopK:              50,
@@ -122,6 +126,14 @@ func ReadLLMConfig(customDir ...string) (*LLMConfig, error) {
 		fmt.Println("Failed to parse YAML config:", err.Error())
 		return nil, fmt.Errorf("failed to parse YAML config: %w", err)
 	}
+	
+	// 处理所有字符串类型字段的前后空格
+	config.LLM.APIType = LLMType(strings.TrimSpace(string(config.LLM.APIType)))
+	config.LLM.APIKey = strings.TrimSpace(config.LLM.APIKey)
+	config.LLM.BaseURL = strings.TrimSpace(config.LLM.BaseURL)
+	config.LLM.Model = strings.TrimSpace(config.LLM.Model)      // 处理 Model 字段的空格
+	config.LLM.RegionName = strings.TrimSpace(config.LLM.RegionName)
+	
 	fmt.Println("YAML content parsed successfully")
 
 	// // 打印解析后的每个字段
